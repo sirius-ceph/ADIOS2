@@ -102,9 +102,14 @@ The following options can be specified with CMake's `-DVAR=VALUE` syntax to cont
 | `ADIOS2_USE_ZeroMQ`  | **`AUTO`**/``ON``/``OFF`` | Enable ZeroMQ for the DataMan engine.                                            |
 | `ADIOS2_USE_HDF5`    | **`AUTO`**/``ON``/``OFF`` | Enable the [HDF5](https://www.hdfgroup.org) engine.                              |
 | `ADIOS2_USE_ADIOS1`  | **`AUTO`**/``ON``/``OFF`` | Enable the [ADIOS 1.x](https://www.olcf.ornl.gov/center-projects/adios/) engine. |
-| `ADIOS2_USE_Python`  | **`AUTO`**/``ON``/``OFF`` | Enable the Python >= 2.7 bindings. |
+| `ADIOS2_USE_Python`  | **`AUTO`**/``ON``/``OFF`` | Enable the Python >= 2.7 bindings.                                               |
+| `ADIOS2_USE_CEPH`    | **`AUTO`**/``ON``/``OFF`` | Enable Ceph engine.                                                              |
 
 Note: The `ADIOS2_USE_HDF5` and `ADIOS2_USE_ADIOS1` options require the use of a matching serial or parallel version depending on whether `ADIOS2_USE_MPI` is enabled.  Similary, enabling MPI and Python bindings requires the presence of `mpi4py`.
+
+Additional Ceph options required for USE_CEPH:
+| -DCEPH_INCLUDE_DIRS  | Example: -DCEPH_INCLUDE_DIRS=/usr/include/rados/ 
+| -DCEPH_LIBRARIES     | Example: -DCEPH_LIBRARIES=/usr/lib/x86_64-linux-gnu/librados.so 
 
 In addition to the `ADIOS2_USE_Feature` options, the following options are also available to control how the library get's built:
 
