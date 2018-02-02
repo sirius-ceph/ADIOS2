@@ -108,8 +108,14 @@ The following options can be specified with CMake's `-DVAR=VALUE` syntax to cont
 Note: The `ADIOS2_USE_HDF5` and `ADIOS2_USE_ADIOS1` options require the use of a matching serial or parallel version depending on whether `ADIOS2_USE_MPI` is enabled.  Similary, enabling MPI and Python bindings requires the presence of `mpi4py`.
 
 Additional Ceph options required for USE_CEPH:
-| -DCEPH_INCLUDE_DIRS  | Example: -DCEPH_INCLUDE_DIRS=/usr/include/rados/ 
-| -DCEPH_LIBRARIES     | Example: -DCEPH_LIBRARIES=/usr/lib/x86_64-linux-gnu/librados.so 
+| 
+|   | Example: 
+
+| CMake options for Ceph     | Example                                                   |                                                                            |
+| :------------------------- | :-------------------------------------------------------  | 
+| `-DCEPH_INCLUDE_DIRS`      |  -DCEPH_INCLUDE_DIRS=/usr/include/rados/                  |                                                                |
+| `-DCEPH_LIBRARIES`         |  -DCEPH_LIBRARIES=/usr/lib/x86_64-linux-gnu/librados.so   |
+
 
 In addition to the `ADIOS2_USE_Feature` options, the following options are also available to control how the library get's built:
 

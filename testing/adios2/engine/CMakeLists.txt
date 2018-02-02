@@ -23,6 +23,10 @@ if(ADIOS2_HAVE_SST)
   add_subdirectory(sst)
 endif()
 
+if(ADIOS2_HAVE_CEPH)
+  add_subdirectory(ceph)
+endif()
+
 if(ADIOS2_HAVE_MPI)
   add_subdirectory(insitumpi)
 endif()
