@@ -19,14 +19,19 @@
 
 int main(int argc, char *argv[])
 {
-    MPI_Init(&argc, &argv);
     int rank, size;
+    
+#ifdef ADIOS2_HAVE_MPI
+    MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
+#else
+    rank = 0;
+    size = 1;
+#endif
 
     /** Application variable */
     std::vector<float> myFloats = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<int> myInts = {0, -1, -2, -3, -4, -5, -6, -7, -8, -9};
     const std::size_t Nx = myFloats.size();
 
     const std::string myString("Hello Variable String from rank " +
@@ -39,32 +44,30 @@ int main(int argc, char *argv[])
 
         /*** IO class object: settings and factory of Settings: Variables,
          * Parameters, Transports, and Execution: Engines */
-        adios2::IO &bpIO = adios.DeclareIO("BPFile_N2N");
-        // bpIO.SetParameters({{"Threads", "4"}});
-
+        adios2::IO &cephIO = adios.DeclareIO("Ceph_N2N");
+        cephIO.SetEngine("Ceph");
+        cephIO.SetParameters({
+            {"cephIP", "127.0.0.1"},
+            {"user", "admin"},
+            {"objectsizeMB", "8"}
+            });
+            
+        // Define variable and local size
         /** global array : name, { shape (total) }, { start (local) }, {
          * count
          * (local) }, all are constant dimensions */
-        adios2::Variable<float> &bpFloats = bpIO.DefineVariable<float>(
+        auto bpFloats = cephIO.DefineVariable<float>(
             "bpFloats", {size * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
-
-        adios2::Variable<int> &bpInts = bpIO.DefineVariable<int>(
-            "bpInts", {size * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
-
-        adios2::Variable<std::string> &bpString =
-            bpIO.DefineVariable<std::string>("bpString");
-
+        
         /** Engine derived class, spawned to start IO operations */
-        adios2::Engine &bpFileWriter =
-            bpIO.Open("myVector_cpp.bp", adios2::Mode::Write);
-
+        adios2::Engine &cephWriter = cephIO.Open("objname", adios2::Mode::Write);
+        
         /** Put variables for buffering, template type is optional */
-        bpFileWriter.PutSync<float>(bpFloats, myFloats.data());
-        bpFileWriter.PutSync(bpInts, myInts.data());
-        bpFileWriter.PutSync(bpString, myString);
-
-        /** Create bp file, engine becomes unreachable after this*/
-        bpFileWriter.Close();
+        cephWriter.PutSync<float>(bpFloats, myFloats.data());
+        
+        /** Create object, engine becomes unreachable after this*/
+        cephWriter.Close();
+        
     }
     catch (std::invalid_argument &e)
     {
@@ -85,7 +88,9 @@ int main(int argc, char *argv[])
         std::cout << e.what() << "\n";
     }
 
+#ifdef ADIOS2_HAVE_MPI
     MPI_Finalize();
+#endif
 
     return 0;
 }
