@@ -427,9 +427,17 @@ Engine &IO::Open(const std::string &name, const Mode mode,
                                     "MPI, can't use InSituMPI engine\n");
 #endif
     }
-    else if (engineTypeLC == "ceph")  // jpl
+    else if (engineTypeLC == "ceph")  
     {
 #ifdef ADIOS2_HAVE_CEPH
+        if (mode == Mode::Read)
+        {
+            /* not implemented yet 
+            * engine =
+            *    std::make_shared<CephReader>(*this, name, mode, mpiComm);
+            */
+        }
+        else
         engine = std::make_shared<CephWriter>(*this, name, mode, mpiComm);
 #else
         throw std::invalid_argument("ERROR: this version didn't compile with "

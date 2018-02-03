@@ -91,6 +91,8 @@ TEST_F(CephWriteReadTestADIOS2, ADIOS2CephWriteRead1D8)
         // Create the BP Engine
         io.SetEngine("Ceph");
         io.AddTransport("CephObjTrans");
+        
+        // note: Params = std::map<std::string, std::string>;
 
         // QUESTION: It seems that BPFilterWriter cannot overwrite existing
         // files
