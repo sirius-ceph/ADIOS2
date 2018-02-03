@@ -90,7 +90,7 @@ TEST_F(CephWriteReadTestADIOS2, ADIOS2CephWriteRead1D8)
         // from: engine/bp/TestBPWriteRead.cpp: TEST_F(BPWriteReadTest, ADIOS2BPWriteADIOS1Read1D8)
         // Create the BP Engine
         io.SetEngine("Ceph");
-        io.AddTransport("CephObj");
+        io.AddTransport("CephObjTrans");
 
         // QUESTION: It seems that BPFilterWriter cannot overwrite existing
         // files
