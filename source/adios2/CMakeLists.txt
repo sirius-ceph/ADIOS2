@@ -153,11 +153,12 @@ if(ADIOS2_HAVE_HDF5)
 endif()
 
 if(ADIOS2_HAVE_CEPH) 
-	target_include_directories(adios2 PRIVATE ${CEPH_INCLUDE_DIRS})
-    	target_sources(adios2 PRIVATE
-		engine/ceph/CephWriter.cpp engine/ceph/CephWriter.tcc
-		toolkit/transport/ceph/CephObjTrans.cpp
-        target_link_libraries(adios2 PRIVATE ${CEPH_LIBRARIES})
+    target_include_directories(adios2 PRIVATE ${CEPH_INCLUDE_DIRS})
+    target_sources(adios2 PRIVATE
+    engine/ceph/CephWriter.cpp engine/ceph/CephWriter.tcc
+    toolkit/transport/ceph/CephObjTrans.cpp
+    )
+    target_link_libraries(adios2 PRIVATE ${CEPH_LIBRARIES})
 endif()
 
 # Set library version information

@@ -152,5 +152,20 @@ else()
   set(ADIOS2_HAVE_SysVShMem OFF)
 endif()
 
+# Ceph 
+if(ADIOS2_USE_CEPH STREQUAL AUTO)
+  set(ADIOS2_HAVE_CEPH FALSE)
+endif()
+
+# Ceph 
+if(ADIOS2_USE_CEPH STREQUAL OFF)
+  set(ADIOS2_HAVE_CEPH FALSE)
+endif()
+
+# Ceph 
+if(ADIOS2_USE_CEPH STREQUAL ON)
+  set(ADIOS2_HAVE_CEPH TRUE)
+endif()
+
 # Multithreading
 find_package(Threads REQUIRED)

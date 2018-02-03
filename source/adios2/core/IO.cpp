@@ -50,6 +50,10 @@
 #include "adios2/engine/insitumpi/InSituMPIWriter.h"
 #endif
 
+#ifdef ADIOS2_HAVE_CEPH // external dependencies 
+#include "adios2/engine/ceph/CephWriter.h"
+#endif
+
 namespace adios2
 {
 
@@ -421,6 +425,15 @@ Engine &IO::Open(const std::string &name, const Mode mode,
 #else
         throw std::invalid_argument("ERROR: this version didn't compile with "
                                     "MPI, can't use InSituMPI engine\n");
+#endif
+    }
+    else if (engineTypeLC == "ceph")  // jpl
+    {
+#ifdef ADIOS2_HAVE_CEPH
+        engine = std::make_shared<CephWriter>(*this, name, mode, mpiComm);
+#else
+        throw std::invalid_argument("ERROR: this version didn't compile with "
+                                    "CEPH library, can't use CEPH engine\n");
 #endif
     }
     else if (engineTypeLC == "pluginengine")
