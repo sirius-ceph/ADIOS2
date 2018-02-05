@@ -20,9 +20,9 @@
 int main(int argc, char *argv[])
 {
     int wrank = 0, wnproc = 1;
-    int rank = 0, nproc = 1;
+    int rank = 0, nproc = 2 ;
     MPI_Comm mpiWriterComm;
-
+std::cout << "nproc=" << nproc << std::endl;
 #ifdef ADIOS2_HAVE_MPI
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &wrank);
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(mpiWriterComm, &rank);
     MPI_Comm_size(mpiWriterComm, &nproc);
 #endif
-
+std::cout << "nproc=" << nproc << std::endl;
     try
     {
         HelloSkeletonArgs settings(true, argc, argv, rank, nproc);

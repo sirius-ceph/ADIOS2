@@ -13,7 +13,7 @@
 
 #include "adios2/ADIOSConfig.h"
 #include "adios2/core/Engine.h"
-#include "adios2/toolkit/format/bp3/BP3.h"
+//#include "adios2/toolkit/format/bp3/BP3.h"
 #include "adios2/toolkit/transportman/TransportMan.h" //transport::TransportsMan
 //#include "adios2/toolkit/interop/ceph/CephCommon.h"
 
@@ -48,14 +48,17 @@ private:
     /** Single object controlling BP buffering */
     // format::BP3Serializer m_BP3Serializer;
 
-    void Init() final;
+    int m_Verbosity = 0;
+    int m_WriterRank = -1;       // my rank in the writers' comm
+    int m_CurrentStep = -1; // steps start from 0
 
-    /** Parses parameters from IO SetParameters */
+    // EndStep must call PerformPuts if necessary
+    bool m_NeedPerformPuts = false;
+
+    void Init() final;
     void InitParameters() final;
-    /** Parses transports and parameters from IO AddTransport */
     void InitTransports() final;
-    /** Allocates memory and starts a PG group */
-    void InitBuffer();
+    void InitBuffer();  // used in BPWriter but not part of engine class.
 
 #define declare_type(T)                                                        \
     void DoPutSync(Variable<T> &, const T *) final;                            \

@@ -30,7 +30,15 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
 : Engine("CephWriter", io, name, mode, mpiComm)
 {
     m_EndMessage = " in call to IO Open CephWriter " + m_Name + "\n";
+    const std::string msg = "CephWriter() Engine constructor.  m_Name=" + m_Name;
+    
+    MPI_Comm_rank(mpiComm, &m_WriterRank);
     Init();
+    if (m_Verbosity == 5)
+    {
+        std::cout << msg << ".  m_WriterRank=" << m_WriterRank << std::endl;
+    }
+    
 }
 
 CephWriter::~CephWriter() = default;
@@ -148,13 +156,34 @@ void CephWriter::InitTransports()
         defaultTransportParameters["transport"] = "CephObjTrans";
         m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
     }
+    
+    auto itParams = m_IO.m_Parameters.find("verbose");
+    if (itParams != m_IO.m_Parameters.end())
+    {
+        m_Verbosity = std::stoi(itParams->second);
+        if (m_DebugMode)
+        {
+            if (m_Verbosity < 0 || m_Verbosity > 5)
+                throw std::invalid_argument(
+                    "ERROR: Method verbose argument must be an "
+                    "integer in the range [0,5], in call to "
+                    "Open or Engine constructor\n");
+        }
+    }
 
 
 }
 
 void CephWriter::InitBuffer()
 {
-    const std::string msg = " in call to CephWriter::InitBuffer() \n";
+    const std::string msg = "CephWriter::InitBuffer() \n";
+    
+    if (m_Verbosity == 5)
+    {
+        //std::cout << "Skeleton Writer " << m_WriterRank << "   EndStep()\n";
+        std::cout << msg << std::endl;
+    }
+    
 
 }
 

@@ -3,11 +3,11 @@
 # accompanying file Copyright.txt for details.
 #------------------------------------------------------------------------------#
 
+add_executable(hello_cephWriter helloCephWriter.cpp  HelloCephArgs.cpp)
+  
 if(ADIOS2_HAVE_MPI)
-  add_executable(hello_cephWriter helloCephWriter.cpp)
+  target_include_directories(hello_cephWriter PRIVATE ${MPI_C_INCLUDE_PATH})
   target_link_libraries(hello_cephWriter MPI::MPI_C)  
-else()
-  add_executable(hello_cephWriter helloCephWriter_nompi.cpp) 
 endif()
 
 target_link_libraries(hello_cephWriter adios2)
