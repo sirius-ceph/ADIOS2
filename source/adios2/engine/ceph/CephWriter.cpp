@@ -17,9 +17,8 @@
 #include "adios2/ADIOSMacros.h"
 #include "adios2/core/IO.h"
 #include "adios2/helper/adiosFunctions.h" //CheckIndexRange
-#include "adios2/toolkit/transport/file/FileFStream.h"
+//#include "adios2/toolkit/transport/file/FileFStream.h"
 #include "adios2/toolkit/transport/ceph/CephObjTrans.h"
-
 
 
 namespace adios2
@@ -30,7 +29,7 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
 : Engine("CephWriter", io, name, mode, mpiComm)
 {
     m_EndMessage = " in call to IO Open CephWriter " + m_Name + "\n";
-    const std::string msg = "CephWriter() Engine constructor.  m_Name=" + m_Name;
+    const std::string msg = "CephWriter::CephWriter() Engine constructor called from IO.Open.  m_Name=" + m_Name;
     
     MPI_Comm_rank(mpiComm, &m_WriterRank);
     Init();
@@ -39,13 +38,27 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
         std::cout << msg << ".  m_WriterRank=" << m_WriterRank << std::endl;
     }
     
+    /* 
+     * in IO.h :
+     * From SetParameter, parameters for a particular engine from m_Type 
+        Params m_Parameters;
+
+     * From AddTransport, parameters in map for each transport in vector 
+        std::vector<Params> m_TransportsParameters;
+    */
+    
 }
 
 CephWriter::~CephWriter() = default;
 
 StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
 {
-    const std::string msg = " in call to CephWriter::BeginStep(StepMode mode, const float timeoutSeconds) \n";   
+    m_CurrentStep++; // 0 is the first step
+    if (m_Verbosity == 5)
+    {
+        std::cout << "Ceph Writer " << m_WriterRank
+                  << "   BeginStep() new step " << m_CurrentStep << "\n";
+    }
     return StepStatus::OK;
 }
 

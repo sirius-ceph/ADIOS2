@@ -10,15 +10,21 @@
         ====================================-->
 
     <io name="writer">
+
     
         <engine type="Ceph">
             <parameter key="verbose" value="5"/>
+            <parameter key="MaxBufferSize" value="2Gb"/>
+            <parameter key="BufferGrowthFactor" value="1.25"/>
+            <parameter key="TargetObjSize" value="8Mb"/>
         </engine>
         
         <transport type="CephObjTrans">
-            <parameter key="X" value="Y"/>
+            <parameter key="CephMonIP" value="127.0.0.1"/>
+            <parameter key="CephUser" value="admin"/>
+            <parameter key="verbose" value="5"/>
         </transport>
-        
+            
     </io>
 
 

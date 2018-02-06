@@ -17,8 +17,9 @@
 
 #include "HelloCephArgs.h"
 #include <adios2.h>
+#include "adios2/ADIOSTypes.h"
 
-// sirius@01836545d244:/src/adios2/sirius-ceph/build$ ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 1 4 4 5 100
+ // ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 1 4 4 5 500
 
 
 int main(int argc, char *argv[])
@@ -76,16 +77,24 @@ int main(int argc, char *argv[])
         //~ cephIO.SetEngine("CephXX");
         
         // IO params, can also pull from local xml config file
-        cephIO.SetParameters({
-            {"cephMonIP", "127.0.0.1"},
-            {"cephUser", "admin"},
-            {"objectSizeMB", "8"}, 
-            {"MaxBufferSize","2Gb"}, 
-            {"BufferGrowthFactor", "1.5" },
-            {"verbose", "5"}
-        });
+       cephIO.SetParameter("x", "y");
         
-        std::cout << "here" << std::endl;
+        std::cout << "helloCephWriter" << std::endl;
+        
+        adios2::Params ioParams = cephIO.GetParameters();
+        for (std::map<std::string,std::string>::iterator it=ioParams.begin(); it!=ioParams.end(); ++it)
+            std::cout << "IO Params: " << it->first << " => " << it->second << '\n';
+            
+        std::vector<adios2::Params> v = cephIO.m_TransportsParameters;
+        for (std::vector<adios2::Params>::iterator it = v.begin(); it != v.end(); ++it)
+        {
+            adios2::Params p = *it;
+            for (std::map<std::string,std::string>::iterator i=p.begin(); i!=p.end(); ++i)
+            { 
+                std::cout << "Transp Params: " << i->first << " => " << i->second << '\n';
+            }
+        }
+
             
         // Define variable and local size
         /** global array : name, { shape (total) }, { start (local) }, {
@@ -101,8 +110,8 @@ int main(int argc, char *argv[])
             cephIO.DefineVariable<std::string>("strings");
         
         /** Engine derived class, spawned to start IO operations */
-        adios2::Engine &cephWriter = cephIO.Open("ObjectNameGeneratorFunctionGoesHere", adios2::Mode::Write);
-        
+        adios2::Engine &cephWriter = cephIO.Open("ObjectorOrObjPrefixGoesHere", adios2::Mode::Write);
+
         /** Put variables for buffering, template type is optional */
         cephWriter.PutSync<float>(floatVars, myFloats.data());
         cephWriter.PutSync<int>(intVars, myInts.data());
