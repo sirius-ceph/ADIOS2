@@ -54,29 +54,17 @@ int main(int argc, char *argv[])
         
         // dataset
         std::vector<float> myArray(settings.ndx * settings.ndy);
-        
-        adios2::ADIOS adios(settings.configfile, mpiWriterComm, adios2::DebugON);
-        
+                
         /** ADIOS class factory of IO class objects, DebugON is recommended */
-        /** adios2::ADIOS adios("cfg.xml", MPI_COMM_WORLD, adios2::DebugON); */
-        
-//~ #ifdef ADIOS2_HAVE_MPI
-        //~ adios2::ADIOS adios(MPI_COMM_WORLD, adios2::DebugON);
-//~ #else
-        //~ adios2::ADIOS adios(adios2::DebugON);
-//~ #endif
+        adios2::ADIOS adios(settings.configfile, mpiWriterComm, adios2::DebugON);
 
-        /*** IO class object: settings and factory of Settings: Variables,
-         * Parameters, Transports, and Execution: Engines */
-        
-        // unique engine name for this adios class scope.        
-        //~ adios2::IO &cephIO = adios.DeclareIO("Ceph_N2N");   
+        // name is in the xml config file, other associated params set as well.
         adios2::IO &cephIO = adios.DeclareIO("writer");   
         
         // valid engine name from core/IO.cpp, engine will do the writes.
         //~ cephIO.SetEngine("CephXX");
         
-        // IO params, can also pull from local xml config file
+        // Extra IO params, can also pull from local xml config file
        cephIO.SetParameter("x", "y");
         
         std::cout << "helloCephWriter" << std::endl;
@@ -110,7 +98,7 @@ int main(int argc, char *argv[])
             cephIO.DefineVariable<std::string>("strings");
         
         /** Engine derived class, spawned to start IO operations */
-        adios2::Engine &cephWriter = cephIO.Open("ObjectorOrObjPrefixGoesHere", adios2::Mode::Write);
+        adios2::Engine &cephWriter = cephIO.Open("ObjectorOrObjNamesPrefix", adios2::Mode::Write);
 
         /** Put variables for buffering, template type is optional */
         cephWriter.PutSync<float>(floatVars, myFloats.data());

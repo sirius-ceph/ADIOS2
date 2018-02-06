@@ -29,23 +29,20 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
 : Engine("CephWriter", io, name, mode, mpiComm)
 {
     m_EndMessage = " in call to IO Open CephWriter " + m_Name + "\n";
-    const std::string msg = "CephWriter::CephWriter() Engine constructor called from IO.Open.  m_Name=" + m_Name;
+
+            std::cout << "CephWriter::CephWriter() Engine constructor begin (Called from IO.Open)." 
+            << " m_Name=" << m_Name << ".  m_WriterRank=" 
+            << m_WriterRank << std::endl;
     
     MPI_Comm_rank(mpiComm, &m_WriterRank);
     Init();
+    
     if (m_Verbosity == 5)
     {
-        std::cout << msg << ".  m_WriterRank=" << m_WriterRank << std::endl;
+        std::cout << "CephWriter::CephWriter() Engine constructor end (Called from IO.Open)." 
+            << " m_Name=" << m_Name << ".  m_WriterRank=" 
+            << m_WriterRank << std::endl;
     }
-    
-    /* 
-     * in IO.h :
-     * From SetParameter, parameters for a particular engine from m_Type 
-        Params m_Parameters;
-
-     * From AddTransport, parameters in map for each transport in vector 
-        std::vector<Params> m_TransportsParameters;
-    */
     
 }
 
@@ -64,7 +61,13 @@ StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
 
 void CephWriter::PerformPuts()
 {
-    const std::string msg = " in call to CephWriter::PerformPuts() \n";   
+    if (m_Verbosity == 5)
+    {
+        std::cout << "CephWriter " << m_WriterRank
+                  << "     PerformPuts()\n";
+    }
+    m_NeedPerformPuts = false;
+    
     //m_BP3Serializer.ResizeBuffer(m_BP3Serializer.m_DeferredVariablesDataSize, "in call to PerformPuts");
 
     //~ for (const auto &variableName : m_BP3Serializer.m_DeferredVariables)
@@ -77,7 +80,16 @@ void CephWriter::PerformPuts()
 
 void CephWriter::EndStep()
 {
-    const std::string msg = " in call to CephWriter::EndStep() \n";
+
+    if (m_NeedPerformPuts)
+    {
+        PerformPuts();
+    }
+    if (m_Verbosity == 5)
+    {
+        std::cout << "CephWriter " << m_WriterRank << "   EndStep()\n";
+    }
+
     //~ if (m_BP3Serializer.m_DeferredVariables.size() > 0)
     //~ {
         //~ PerformPuts();
@@ -132,7 +144,6 @@ void CephWriter::DoClose(const int transportIndex)
 // PRIVATE
 void CephWriter::Init()
 {
-    const std::string msg = " in call to CephWriter::Init() \n";
     InitParameters();
     InitTransports();
     InitBuffer();
@@ -153,23 +164,6 @@ ADIOS2_FOREACH_TYPE_1ARG(declare_type)
 
 void CephWriter::InitParameters()
 {
-    const std::string msg = " in call to CephWriter::InitParameters() \n";
-    //m_BP3Serializer.InitParameters(m_IO.m_Parameters);
-}
-
-void CephWriter::InitTransports()
-{
-    
-    const std::string msg = " in call to CephWriter::InitTransports() \n";
-
-    // TODO need to add support for aggregators here later
-    if (m_IO.m_TransportsParameters.empty())
-    {
-        Params defaultTransportParameters;
-        defaultTransportParameters["transport"] = "CephObjTrans";
-        m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
-    }
-    
     auto itParams = m_IO.m_Parameters.find("verbose");
     if (itParams != m_IO.m_Parameters.end())
     {
@@ -182,22 +176,44 @@ void CephWriter::InitTransports()
                     "integer in the range [0,5], in call to "
                     "Open or Engine constructor\n");
         }
+        if (m_Verbosity == 5)
+        {
+            std::cout << "CephWriter " << m_WriterRank << " InitParameters(" << m_Name
+                      << ")\n";
+        }
     }
+    
+}
+
+void CephWriter::InitTransports()
+{
+    
+    if (m_Verbosity == 5)
+    {
+        std::cout << "CephWriter " << m_WriterRank << " InitTransports(" 
+        << m_Name << ")\n";
+    }
+
+    // TODO need to add support for aggregators here later
+    if (m_IO.m_TransportsParameters.empty())
+    {
+        Params defaultTransportParameters;
+        defaultTransportParameters["transport"] = "CephObjTrans";
+        m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
+    }
+    
+
 
 
 }
 
 void CephWriter::InitBuffer()
 {
-    const std::string msg = "CephWriter::InitBuffer() \n";
-    
     if (m_Verbosity == 5)
     {
-        //std::cout << "Skeleton Writer " << m_WriterRank << "   EndStep()\n";
-        std::cout << msg << std::endl;
+        std::cout << "CephWriter " << m_WriterRank << " InitBuffer(" 
+        << m_Name << ")\n";
     }
-    
-
 }
 
 
