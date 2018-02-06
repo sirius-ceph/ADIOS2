@@ -244,6 +244,7 @@ void CephWriter::InitTransports2(MPI_Comm mpiComm)
       m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
     }
   transport = std::shared_ptr<transport::CephObjTrans>(new transport::CephObjTrans(mpiComm, true));
+  //transport->Open(const std::string &name, const Mode openMode);
 }
 
 void CephWriter::InitBuffer()
@@ -254,6 +255,10 @@ void CephWriter::InitBuffer()
         std::cout << "CephWriter " << m_WriterRank << " InitBuffer(" 
         << m_Name << ")\n";
     }
+
+#ifdef USE_CEPH_OBJ_TRANS
+    m_bl = new librados::bufferlist(m_TargetObjSize);
+#endif /* USE_CEPH_OBJ_TRANS */
 }
 
 } // end namespace adios2

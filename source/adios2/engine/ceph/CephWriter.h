@@ -15,6 +15,8 @@
 #include "adios2/core/Engine.h"
 #include "adios2/toolkit/transport/ceph/CephObjTrans.h"
 
+#include <rados/librados.hpp>
+
 namespace adios2
 {
 
@@ -49,6 +51,7 @@ private:
     int m_CurrentStep = -1; // steps start from 0
 
     int m_TargetObjSize = -1;
+    librados::bufferlist *m_bl = NULL;
 
     // EndStep must call PerformPuts if necessary
     bool m_NeedPerformPuts = false;

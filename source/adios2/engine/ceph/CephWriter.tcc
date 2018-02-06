@@ -37,7 +37,17 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     //      0b. clear BL
     // 1. append vals to BL
 
-    
+#ifdef USE_CEPH_OBJ_TRANS
+if (m_bl->length() + varsize >= m_TargetObjSize) {
+      // TODO: generate oid?
+      // TODO: write current BL as obj to ceph.
+      //       The signature should be like this?
+      //       transport->OWrite(std::string oid, const char *buffer, size_t size, size_t start = MaxSizeT)
+      // TODO: clear BL.
+    }
+    m_bl->append((const char*)values, varsize);
+#endif /* USE_CEPH_OBJ_TRANS */
+
     // BPFileWriter: try to resize buffer to hold new varsize if needed
     // format::BP3Base::ResizeResult resizeResult = m_BP3Serializer.ResizeBuffer(
     
