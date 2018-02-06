@@ -13,6 +13,7 @@
 
 #include "adios2/ADIOSConfig.h"
 #include "adios2/core/Engine.h"
+#include "adios2/toolkit/transport/ceph/CephObjTrans.h"
 
 namespace adios2
 {
@@ -55,7 +56,10 @@ private:
     void Init() final;
     void InitParameters() final;
     void InitTransports() final;
+    void InitTransports2(MPI_Comm mpiComm);
     void InitBuffer();  // NOTE: used in BPWriter but not part of abstract engine class.
+
+    std::shared_ptr<transport::CephObjTrans> transport;
 
 #define declare_type(T)                                                        \
     void DoPutSync(Variable<T> &, const T *) final;                            \

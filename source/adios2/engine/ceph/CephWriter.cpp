@@ -35,6 +35,9 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
     
     MPI_Comm_rank(mpiComm, &m_WriterRank);
     Init();
+#ifdef USE_CEPH_OBJ_TRANS
+    InitTransports2(mpiComm);
+#endif /* USE_CEPH_OBJ_TRANS */
     
     if (m_Verbosity == 5)
     {
@@ -47,16 +50,16 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
 
 CephWriter::~CephWriter() = default;
 
-StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
-{
+  StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
+  {
     m_CurrentStep++; // 0 is the first step
     if (m_Verbosity == 5)
-    {
+      {
         std::cout << "CephWriter " << m_WriterRank
                   << "   BeginStep() new step " << m_CurrentStep << "\n";
-    }
+      }
     return StepStatus::OK;
-}
+  }
 
 void CephWriter::PerformPuts()
 {
@@ -135,6 +138,10 @@ void CephWriter::DoClose(const int transportIndex)
 
     //~ m_FileDataManager.CloseFiles(transportIndex);
 
+#ifdef USE_CEPH_OBJ_TRANS
+    transport->Close();
+#endif /* USE_CEPH_OBJ_TRANS */
+
     //~ if (m_BP3Serializer.m_Profiler.IsActive &&
         //~ m_FileDataManager.AllTransportsClosed())
     //~ {
@@ -153,7 +160,9 @@ void CephWriter::DoClose(const int transportIndex)
 void CephWriter::Init()
 {
     InitParameters();
+#ifndef USE_CEPH_OBJ_TRANS
     InitTransports();
+#endif /* USE_CEPH_OBJ_TRANS */
     InitBuffer();
 }
 
@@ -206,7 +215,7 @@ void CephWriter::InitTransports()
     
     if (m_Verbosity == 5)
     {
-        std::cout << "CephWriter " << m_WriterRank << " InitTransports(" 
+        std::cout << "CephWriter " << m_WriterRank << " InitTransports("
         << m_Name << ")\n";
     }
 
@@ -217,6 +226,24 @@ void CephWriter::InitTransports()
         defaultTransportParameters["transport"] = "CephObjTrans";
         m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
     }
+}
+  
+void CephWriter::InitTransports2(MPI_Comm mpiComm)
+{
+  if (m_Verbosity == 5)
+    {
+      std::cout << "CephWriter " << m_WriterRank << " InitTransports("
+		<< m_Name << ")\n";
+    }
+
+  // TODO need to add support for aggregators here later
+  if (m_IO.m_TransportsParameters.empty())
+    {
+      Params defaultTransportParameters;
+      defaultTransportParameters["transport"] = "CephObjTrans";
+      m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
+    }
+  transport = std::shared_ptr<transport::CephObjTrans>(new transport::CephObjTrans(mpiComm, true));
 }
 
 void CephWriter::InitBuffer()
