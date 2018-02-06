@@ -16,7 +16,7 @@
             <parameter key="verbose" value="5"/>
             <parameter key="MaxBufferSize" value="2Gb"/>
             <parameter key="BufferGrowthFactor" value="1.25"/>
-            <parameter key="TargetObjSize" value="8Mb"/>
+            <parameter key="TargetObjSize" value="8388608"/>
         </engine>
         
         <transport type="CephObjTrans">

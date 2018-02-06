@@ -172,25 +172,33 @@ ADIOS2_FOREACH_TYPE_1ARG(declare_type)
 
 void CephWriter::InitParameters()
 {
-    auto itParams = m_IO.m_Parameters.find("verbose");
-    if (itParams != m_IO.m_Parameters.end())
+  auto itParams = m_IO.m_Parameters.find("verbose");
+  if (itParams != m_IO.m_Parameters.end())
     {
-        m_Verbosity = std::stoi(itParams->second);
-        if (m_DebugMode)
+      m_Verbosity = std::stoi(itParams->second);
+      if (m_DebugMode)
         {
-            if (m_Verbosity < 0 || m_Verbosity > 5)
-                throw std::invalid_argument(
-                    "ERROR: Method verbose argument must be an "
-                    "integer in the range [0,5], in call to "
-                    "Open or Engine constructor\n");
+	  if (m_Verbosity < 0 || m_Verbosity > 5)
+	    throw std::invalid_argument(
+					"ERROR: Method verbose argument must be an "
+					"integer in the range [0,5], in call to "
+					"Open or Engine constructor\n");
         }
-        if (m_Verbosity == 5)
+      if (m_Verbosity == 5)
         {
-            std::cout << "CephWriter " << m_WriterRank << " InitParameters(" << m_Name
-                      << ")\n";
+	  std::cout << "CephWriter " << m_WriterRank << " InitParameters(" << m_Name
+		    << ")\n";
         }
     }
-    
+  itParams = m_IO.m_Parameters.find("TargetObjSize");
+  if (itParams != m_IO.m_Parameters.end())
+    {
+      m_TargetObjSize = std::stoi(itParams->second);
+      if (m_Verbosity == 5)
+        {
+	  std::cout << "CephWriter set TargetObjSize=" << m_TargetObjSize << std::endl;
+        }
+    }
 }
 
 void CephWriter::InitTransports()

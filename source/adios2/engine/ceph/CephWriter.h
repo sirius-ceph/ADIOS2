@@ -47,6 +47,8 @@ private:
     int m_WriterRank = -1;       // my rank in the writers' comm
     int m_CurrentStep = -1; // steps start from 0
 
+    int m_TargetObjSize = -1;
+
     // EndStep must call PerformPuts if necessary
     bool m_NeedPerformPuts = false;
 
