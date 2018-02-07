@@ -39,7 +39,9 @@ public:
 
 
 private:
-    // // BPFileWriter: format::BP3Serializer m_BP3Serializer;  /** Single object controlling BP buffering */
+    // BPFileWriter: format::BP3Serializer m_BP3Serializer;  /** Single object controlling BP buffering */
+
+    // CephWriter: add char* buffer or ceph BL here, create during InitBuffer()
 
     int m_Verbosity = 0;
     int m_WriterRank = -1;       // my rank in the writers' comm
