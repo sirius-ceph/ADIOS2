@@ -17,7 +17,6 @@
 #include "adios2/ADIOSMacros.h"
 #include "adios2/core/IO.h"
 #include "adios2/helper/adiosFunctions.h" //CheckIndexRange
-//#include "adios2/toolkit/transport/file/FileFStream.h"
 #include "adios2/toolkit/transport/ceph/CephObjTrans.h"
 
 
@@ -53,7 +52,7 @@ StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
     m_CurrentStep++; // 0 is the first step
     if (m_Verbosity == 5)
     {
-        std::cout << "Ceph Writer " << m_WriterRank
+        std::cout << "CephWriter " << m_WriterRank
                   << "   BeginStep() new step " << m_CurrentStep << "\n";
     }
     return StepStatus::OK;
@@ -68,6 +67,7 @@ void CephWriter::PerformPuts()
     }
     m_NeedPerformPuts = false;
     
+    // BPFileWriter:
     //m_BP3Serializer.ResizeBuffer(m_BP3Serializer.m_DeferredVariablesDataSize, "in call to PerformPuts");
 
     //~ for (const auto &variableName : m_BP3Serializer.m_DeferredVariables)
@@ -80,7 +80,8 @@ void CephWriter::PerformPuts()
 
 void CephWriter::EndStep()
 {
-
+    // CephWriter call to PutSyncCommon() here
+    
     if (m_NeedPerformPuts)
     {
         PerformPuts();
@@ -90,6 +91,7 @@ void CephWriter::EndStep()
         std::cout << "CephWriter " << m_WriterRank << "   EndStep()\n";
     }
 
+    // BPFileWriter:
     //~ if (m_BP3Serializer.m_DeferredVariables.size() > 0)
     //~ {
         //~ PerformPuts();
@@ -112,7 +114,13 @@ void CephWriter::EndStep()
 
 void CephWriter::DoClose(const int transportIndex)
 {
-    const std::string msg = " in call to CephWriter::Close(const int transportIndex) \n";
+    if (m_Verbosity == 5)
+    {
+        std::cout << "CephWriter " << m_WriterRank << " DoClose(" << m_Name
+                  << ")\n";
+    }
+
+    // BPFileWriter:
     //~ if (m_BP3Serializer.m_DeferredVariables.size() > 0)
     //~ {
         //~ PerformPuts();
@@ -140,7 +148,7 @@ void CephWriter::DoClose(const int transportIndex)
     //~ }
 }
 
-// PRIVATE FUNCTIONS
+
 // PRIVATE
 void CephWriter::Init()
 {
@@ -201,14 +209,11 @@ void CephWriter::InitTransports()
         defaultTransportParameters["transport"] = "CephObjTrans";
         m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
     }
-    
-
-
-
 }
 
 void CephWriter::InitBuffer()
 {
+    // CephWriter:  setup/clear the BL here.
     if (m_Verbosity == 5)
     {
         std::cout << "CephWriter " << m_WriterRank << " InitBuffer(" 
@@ -216,12 +221,4 @@ void CephWriter::InitBuffer()
     }
 }
 
-
-
 } // end namespace adios2
-
-
-
-
-
-

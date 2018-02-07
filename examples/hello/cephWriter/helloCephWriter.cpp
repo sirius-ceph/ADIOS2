@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
     const std::string myString("Hello Variable String from rank " +
             std::to_string(rank)); 
     const std::size_t Nx = myFloats.size();
+    std::cout << "helloCephWriter" << std::endl;
 
     try
     {
@@ -65,13 +66,17 @@ int main(int argc, char *argv[])
         //~ cephIO.SetEngine("CephXX");
         
         // Extra IO params, can also pull from local xml config file
-       cephIO.SetParameter("x", "y");
+        cephIO.SetParameter("x", "y");
         
-        std::cout << "helloCephWriter" << std::endl;
+        adios2::Variable<float> &varArray = cephIO.DefineVariable<float>(
+                "myArray", {settings.gndx, settings.gndy},
+                {settings.offsx, settings.offsy}, {settings.ndx, settings.ndy},
+                adios2::ConstantDims);
+            
         
         adios2::Params ioParams = cephIO.GetParameters();
         for (std::map<std::string,std::string>::iterator it=ioParams.begin(); it!=ioParams.end(); ++it)
-            std::cout << "IO Params: " << it->first << " => " << it->second << '\n';
+            std::cout << "IO Eng Params: " << it->first << " => " << it->second << '\n';
             
         std::vector<adios2::Params> v = cephIO.m_TransportsParameters;
         for (std::vector<adios2::Params>::iterator it = v.begin(); it != v.end(); ++it)
@@ -100,10 +105,29 @@ int main(int argc, char *argv[])
         /** Engine derived class, spawned to start IO operations */
         adios2::Engine &cephWriter = cephIO.Open("ObjectorOrObjNamesPrefix", adios2::Mode::Write);
 
+        for (int step = 0; step < settings.steps; ++step)
+        {
+            int idx = 0;
+            for (int j = 0; j < settings.ndy; ++j)
+            {
+                for (int i = 0; i < settings.ndx; ++i)
+                {
+                    myArray[idx] = rank + (step / 100.0f);
+                    ++idx;
+                }
+            }
+            cephWriter.BeginStep(adios2::StepMode::Append);
+            cephWriter.PutDeferred<float>(varArray, myArray.data());
+            cephWriter.EndStep();
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(settings.sleeptime));
+        }
+            
+            
         /** Put variables for buffering, template type is optional */
-        cephWriter.PutSync<float>(floatVars, myFloats.data());
-        cephWriter.PutSync<int>(intVars, myInts.data());
-        cephWriter.PutSync<std::string>(stringVar, myString);    
+       // cephWriter.PutSync<float>(floatVars, myFloats.data());
+       // cephWriter.PutSync<int>(intVars, myInts.data());
+       // cephWriter.PutSync<std::string>(stringVar, myString);    
         
         /** Create object, engine becomes unreachable after this*/
         cephWriter.Close();

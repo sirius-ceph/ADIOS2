@@ -13,15 +13,9 @@
 
 #include "adios2/ADIOSConfig.h"
 #include "adios2/core/Engine.h"
-//#include "adios2/toolkit/format/bp3/BP3.h"
-#include "adios2/toolkit/transportman/TransportMan.h" //transport::TransportsMan
-//#include "adios2/toolkit/interop/ceph/CephCommon.h"
 
 namespace adios2
 {
-
-const unsigned int CEPH_CONF_OBJ_SZ = 10;  // MB
-typedef struct _ObjStream *ObjStream;
 
 
 class CephWriter : public Engine
@@ -45,8 +39,7 @@ public:
 
 
 private:
-    /** Single object controlling BP buffering */
-    // format::BP3Serializer m_BP3Serializer;
+    // // BPFileWriter: format::BP3Serializer m_BP3Serializer;  /** Single object controlling BP buffering */
 
     int m_Verbosity = 0;
     int m_WriterRank = -1;       // my rank in the writers' comm
@@ -58,7 +51,7 @@ private:
     void Init() final;
     void InitParameters() final;
     void InitTransports() final;
-    void InitBuffer();  // used in BPWriter but not part of engine class.
+    void InitBuffer();  // NOTE: used in BPWriter but not part of abstract engine class.
 
 #define declare_type(T)                                                        \
     void DoPutSync(Variable<T> &, const T *) final;                            \
