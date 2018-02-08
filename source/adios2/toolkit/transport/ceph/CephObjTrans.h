@@ -32,6 +32,8 @@ public:
     void Open(const std::string &name, const Mode openMode) final;
 
     void Write(const char *buffer, size_t size, size_t start = MaxSizeT) final;
+    void OWrite(std::string oid, const librados::bufferlist bl, size_t size, size_t start);
+
 
     void Read(char *buffer, size_t size, size_t start = MaxSizeT) final;
 
@@ -43,12 +45,15 @@ public:
 
 
 private:
+
     /** POSIX file handle returned by Open */
     int m_FileDescriptor = -1;
     void CheckFile(const std::string hint) const;
 
-    std::string m_oname =  "";
-    bool ObjExists();
+    /** unique prefix for objects denoting the experiment */
+    std::string m_oidPrefix =  "";
+
+    bool ObjExists(const std::string &oid);
     librados::Rados m_rcluster;
     librados::IoCtx m_io_ctx_storage;
     librados::IoCtx m_io_ctx_archive;

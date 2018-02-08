@@ -32,7 +32,7 @@ CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const bool debugMode)
 : Transport("CephObjTrans", "cephlibrados", mpiComm, debugMode)
 {
     
-    // taken from Ken: https://github.com/kiizawa/siriusdev/blob/master/sample.cpp
+    //  from Ken: https://github.com/kiizawa/siriusdev/blob/master/sample.cpp
     // need to get cluster handle, storage tier pool handle, archive tier pool handle here
     int ret = 0;
     uint64_t flags;
@@ -81,67 +81,61 @@ CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const bool debugMode)
 // skip append mode for now.
 
 
-CephObjTrans::~CephObjTrans()
-{
-    if (m_IsOpen)
-    {
-        close(m_FileDescriptor);
-    }
-}
+CephObjTrans::~CephObjTrans() {}
 
+/** Essentially a no-op, only add some checking here as needed.
+ * because we will not know all of the unique oids at this point 
+ */
 void CephObjTrans::Open(const std::string &name, const Mode openMode)
 {
     m_Name = name;
-    m_oname= name;
-    // CheckName();
     m_OpenMode = openMode;
 
     switch (m_OpenMode)
     {
 
     case (Mode::Write):
-        // check if obj exists, fatal error 
-        // m_FileDescriptor = open(m_Name.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0777);
-        if (ObjExists()) 
-        {
-             throw std::ios_base::failure("ERROR: Object exists.  oname=" + m_oname);
-        }
+        // noop
         break;
 
     case (Mode::Append):
-        // todo: append to an existing object.
+        // TODO: append to an existing object.
         // 1. check if obj exists
         // 2. check obj size.
         // 3. check objector params
         break;
 
     case (Mode::Read):
-    break;
+        // TODO
+        break;
 
     default:
-        CheckFile("unknown open mode for file " + m_Name +
-                  ", in call to POSIX open");
+        // noop
+        break;
     }
-
-    CheckFile("couldn't open file " + m_Name +
-              ", check permissions or path existence, in call to POSIX open");
 
     m_IsOpen = true;
 }
 
 /* test if oid already exists in the current ceph cluster */
-bool CephObjTrans::ObjExists() 
+bool CephObjTrans::ObjExists(const std::string &oid) 
 {    
     // http://docs.ceph.com/docs/master/rados/api/librados/#c.rados_ioctx_    
     // librados::IoCtx io_ctx_storage;    
     
     uint64_t psize;
     std::time_t pmtime;
-    //rados_ioctx_t io;  
-    return ( m_io_ctx_storage.stat(m_oname, &psize, &pmtime) == 0) ? true : false;
-    
+      //rados_ioctx_t io;  
+    return ( m_io_ctx_storage.stat(oid, &psize, &pmtime) == 0) ? true : false;
     //return (rados_stat(io, m_oname.c_str(), &psize, &pmtime) == 0) ? true : false;
+    // could check -ENOENT
 }
+
+void CephObjTrans::OWrite(std::string oid, const librados::bufferlist bl, size_t size, size_t start)
+{
+    
+}
+
 
 void CephObjTrans::Write(const char *buffer, size_t size, size_t start)
 {
