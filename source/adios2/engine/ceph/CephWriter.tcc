@@ -43,7 +43,7 @@ if (m_bl->length() + varsize >= m_TargetObjSize) {
       // TODO: write current BL as obj to ceph.
       //       The signature should be like this?
       //       transport->OWrite(std::string oid, const char *buffer, size_t size, size_t start = MaxSizeT)
-      // TODO: clear BL.
+      m_bl->clear();
     }
     m_bl->append((const char*)values, varsize);
 #endif /* USE_CEPH_OBJ_TRANS */
