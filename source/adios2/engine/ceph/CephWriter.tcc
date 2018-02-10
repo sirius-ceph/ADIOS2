@@ -38,14 +38,19 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     // 1. append vals to BL
 
 #ifdef USE_CEPH_OBJ_TRANS
-if (m_bl->length() + varsize >= m_TargetObjSize) {
-      // TODO: generate oid?
-      // TODO: write current BL as obj to ceph.
-      //       The signature should be like this?
-      //       transport->OWrite(std::string oid, const char *buffer, size_t size, size_t start = MaxSizeT)
-      m_bl->clear();
+    if (m_bl->length() + varsize >= m_TargetObjSize) 
+    {
+          // TODO: generate oid?
+        
+          // TODO: write current BL as obj to ceph.
+          //       The signature should be like this?
+          //       transport->OWrite(std::string oid, const char *buffer, size_t size, size_t start = MaxSizeT)
+          // TODO: clear BL.
+        m_bl->clear();
     }
     m_bl->append((const char*)values, varsize);
+    
+
 #endif /* USE_CEPH_OBJ_TRANS */
 
     // BPFileWriter: try to resize buffer to hold new varsize if needed
@@ -60,6 +65,12 @@ if (m_bl->length() + varsize >= m_TargetObjSize) {
     // m_BP3Serializer.PutVariableMetadata(variable);
     // m_BP3Serializer.PutVariablePayload(variable);
     
+    if (m_Verbosity == 5)
+    {
+        std::cout << "CephWriter " << m_WriterRank << " PutSyncCommon(" 
+            << m_Name << ").  m_bl->length()=" << m_bl->length()
+            << ". m_bl->is_zero()=" << m_bl->is_zero() << "\n";
+    }   
 }
 
 template <class T>
