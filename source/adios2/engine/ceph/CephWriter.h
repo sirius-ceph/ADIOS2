@@ -42,16 +42,24 @@ public:
 
 
 private:
-    // BPFileWriter: format::BP3Serializer m_BP3Serializer;  /** Single object controlling BP buffering */
-
-    // CephWriter: add char* buffer or ceph BL here, create during InitBuffer()
-
+    // BPFileWriter: 
+    // format::BP3Serializer m_BP3Serializer;  /** Single object controlling BP buffering */
+    
+    // Engine vars
     int m_Verbosity = 0;
     int m_WriterRank = -1;       // my rank in the writers' comm
-    int m_CurrentStep = -1; // steps start from 0
+    int m_CurrentStep = -1;     // steps start from 0
 
-    int m_TargetObjSize = -1;
+    // Ceph vars
+    int m_TargetObjSize = 8388608;  // default object size of 8MB  
     librados::bufferlist *m_bl = NULL;
+    int m_TimestepStart = -1;
+    int m_TimestepEnd = -1;
+
+    // EMPRESS vars
+    std::string m_UniqueExperimentName;
+    int m_FlushStepsCount = 1;
+    std::string Objector(std::string prefix, std::string vars, int rank, int timestepStart, int timestepEnd);
 
     // EndStep must call PerformPuts if necessary
     bool m_NeedPerformPuts = false;
