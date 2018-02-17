@@ -2,11 +2,11 @@
  * Distributed under the OSI-approved Apache License, Version 2.0.  See
  * accompanying file Copyright.txt for details.
  *
- * helloBPWriter.cpp: Simple self-descriptive example of how to write a variable
- * to a BP File that lives in several MPI processes.
+ * helloCephWriter.cpp: Simple self-descriptive example of how to write a variable
+ * to Ceph tiered storage. Based upong helloBPWriter.cpp
  *
- *  Created on: Feb 16, 2017
- *      Author: William F Godoy godoywf@ornl.gov
+ *  Created on: 
+ *      Author: 
  */
 
 #include <ios>      //std::ios_base::failure
@@ -19,7 +19,11 @@
 #include <adios2.h>
 #include "adios2/ADIOSTypes.h"
 
- // ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 1 4 4 5 500
+// single process write.
+// sirius@jdev:/src/adios2/build$ ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 1 4 4 5 500
+ 
+// multiple process write.  (n=2 in /etc/proc, and hence args N*M are 1*2 = 2)
+// sirius@jdev:/src/adios2/build/bin$ mpirun hello_cephWriter ../../source/examples/hello/cephWriter/hello_ceph.xml 1 2 2 2 5 500
 
 
 int main(int argc, char *argv[])
@@ -40,12 +44,12 @@ int main(int argc, char *argv[])
     MPI_Comm_size(mpiWriterComm, &nproc);
 #endif
 
-    /** Application variable */
-    std::vector<float> myFloats = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<int> myInts = {0, -1, -2, -3, -4, -5, -6, -7, -8, -9};
-    const std::string myString("Hello Variable String from rank " +
+    /** Application data */
+    std::vector<float> tempVals = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    std::vector<int> pressureVals = {0, -1, -2, -3, -4, -5, -6, -7, -8, -9};
+    const std::string label("Hello Variable String from rank " +
             std::to_string(rank)); 
-    const std::size_t Nx = myFloats.size();
+    const std::size_t Nx = tempVals.size();
     std::cout << "helloCephWriter" << std::endl;
 
     try
@@ -76,15 +80,16 @@ int main(int argc, char *argv[])
         
         adios2::Params ioParams = cephIO.GetParameters();
         for (std::map<std::string,std::string>::iterator it=ioParams.begin(); it!=ioParams.end(); ++it)
-            std::cout << "IO Eng Params: " << it->first << " => " << it->second << '\n';
+            std::cout << "helloCephWriter:IO Eng Params: " << it->first << " => " << it->second << '\n';
             
         std::vector<adios2::Params> v = cephIO.m_TransportsParameters;
+        int count = 0;
         for (std::vector<adios2::Params>::iterator it = v.begin(); it != v.end(); ++it)
         {
             adios2::Params p = *it;
             for (std::map<std::string,std::string>::iterator i=p.begin(); i!=p.end(); ++i)
             { 
-                std::cout << "Transp Params: " << i->first << " => " << i->second << '\n';
+                std::cout << "helloCephWriter:Transp Params(" << count++ << "):" << i->first << " => " << i->second << '\n';
             }
         }
 
@@ -93,14 +98,14 @@ int main(int argc, char *argv[])
         /** global array : name, { shape (total) }, { start (local) }, {
          * count
          * (local) }, all are constant dimensions */
-        adios2::Variable<float> &floatVars = cephIO.DefineVariable<float>(
-            "floats", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
+        adios2::Variable<float> &TemperatureVar = cephIO.DefineVariable<float>(
+            "temps", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
 
-        adios2::Variable<int> &intVars = cephIO.DefineVariable<int>(
-            "ints", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
+        adios2::Variable<int> &PressureVar = cephIO.DefineVariable<int>(
+            "pressure", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
 
-        adios2::Variable<std::string> &stringVar =
-            cephIO.DefineVariable<std::string>("strings");
+        adios2::Variable<std::string> &LabelVar =
+            cephIO.DefineVariable<std::string>("label");
         
         /** Engine derived class, spawned to start IO operations */
         adios2::Engine &cephWriter = cephIO.Open("ObjectorOrObjNamesPrefix", adios2::Mode::Write);
@@ -117,7 +122,10 @@ int main(int argc, char *argv[])
                 }
             }
             cephWriter.BeginStep(adios2::StepMode::Append);
-            cephWriter.PutDeferred<float>(varArray, myArray.data());
+            //cephWriter.PutDeferred<float>(varArray, myArray.data());
+            cephWriter.PutSync<float>(TemperatureVar, tempVals.data());
+            cephWriter.PutSync<int>(PressureVar, pressureVals.data());
+            cephWriter.PutSync<std::string>(LabelVar, label);    
             cephWriter.EndStep();
             std::this_thread::sleep_for(
                 std::chrono::milliseconds(settings.sleeptime));

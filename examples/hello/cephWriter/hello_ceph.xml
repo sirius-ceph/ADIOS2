@@ -14,14 +14,17 @@
     
         <engine type="Ceph">
             <parameter key="verbose" value="5"/>
-            <parameter key="MaxBufferSize" value="2Gb"/>
+            <parameter key="MaxBufferSize" value="1Gb"/>
             <parameter key="BufferGrowthFactor" value="1.25"/>
-            <parameter key="TargetObjSize" value="8388608"/>
+            <parameter key="CephTargetObjSize" value="8388608"/>
         </engine>
         
         <transport type="CephObjTrans">
             <parameter key="CephMonIP" value="127.0.0.1"/>
-            <parameter key="CephUser" value="admin"/>
+            <parameter key="CephUserName" value="client.admin"/>
+            <parameter key="CephClusterName" value="ceph"/>
+            <parameter key="CephStorageTier" value="SLOW"/>
+            <parameter key="CephConfFilePath" value="/share/ceph.conf"/>
             <parameter key="verbose" value="5"/>
         </transport>
             

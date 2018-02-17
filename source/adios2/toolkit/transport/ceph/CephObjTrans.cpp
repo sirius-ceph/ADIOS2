@@ -14,6 +14,7 @@
 #include <iostream>
 #include <string>
 
+
 #include <fcntl.h>     // open
 #include <stddef.h>    // write output
 #include <sys/stat.h>  // open, fstat
@@ -29,49 +30,76 @@ namespace adios2
 namespace transport
 {
 
-CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const bool debugMode)
+// static
+std::string CephObjTrans::ParamsToLower(std::string s) 
+{
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    return s;
+}   
+
+// private
+void CephObjTrans::DebugPrint(std::string msg)
+{
+    std::cout << "CephObjTrans::" << msg << ": m_CephUserName="<< m_CephUserName << std::endl;
+    std::cout << "CephObjTrans::" << msg << ": m_CephClusterName="<< m_CephClusterName << std::endl;
+    std::cout << "CephObjTrans::" << msg << ": m_CephConfFilePath="<< m_CephConfFilePath << std::endl;
+    
+    std::string tier = "EINVAL";
+    if (m_CephStorageTier==CephStorageTier::FAST) tier = "fast";
+    else if (m_CephStorageTier==CephStorageTier::SLOW) tier = "slow";
+    else if (m_CephStorageTier==CephStorageTier::ARCHIVE) tier = "archive";
+    std::cout << "CephObjTrans::" << msg << ": m_CephStorageTier="<< tier << std::endl;    
+}
+
+CephObjTrans::CephObjTrans(MPI_Comm mpiComm,  const std::vector<Params> &params, const bool debugMode)
 : Transport("CephObjTrans", "cephlibrados", mpiComm, debugMode)
 {
+        // fyi: this->m_MPIComm; // (is avail in the transport class)
+    //std::cout << "rank=" << this->m_WriterRank << std::endl; 
     
-    //  from Ken: https://github.com/kiizawa/siriusdev/blob/master/sample.cpp
-    // need to get cluster handle, storage tier pool handle, archive tier pool handle here
-    int ret = 0;
-    uint64_t flags;
+    m_CephStorageTier = CephStorageTier::FAST;
+    m_CephClusterName = "ceph";
+    m_CephUserName = "client.admin";
+    m_CephConfFilePath = "/share/ceph.conf";
 
-    /* Initialize the cluster handle with the "ceph" cluster name and "client.admin" user */
-    ret = m_rcluster.init2(m_user_name.c_str(), m_rcluster_name.c_str(), flags);
-    if (ret < 0) 
+    // set the private vars using Transport Params
+    for (auto it = params.begin(); it != params.end(); ++it)
     {
-         throw std::ios_base::failure("Transport::Ceph Couldn't initialize the cluster handle! error= "  + std::to_string(ret) + "\n");
-    }
+        int count = 0;
+        for (auto elem : *it)
+        {
+            //std::cout << "CephObjTrans:: constructor: Transp Params("<< count++ << "):" << elem.first<< "=>" << elem.second << std::endl;
+            
+            if(ParamsToLower(elem.first) == "cephusername") 
+            {
+                m_CephUserName = elem.second;
+            }
+            else if(ParamsToLower(elem.first) == "cephclustername") 
+            {   
+                m_CephClusterName = elem.second;
+            }
+            else if(ParamsToLower(elem.first) == "cephstoragetier") 
+            { 
+                if (ParamsToLower(elem.second)== "fast") 
+                    m_CephStorageTier = CephStorageTier::FAST;
+                else if (ParamsToLower(elem.second)== "slow") 
+                    m_CephStorageTier = CephStorageTier::SLOW;
+                else if (ParamsToLower(elem.second)== "archive") 
+                    m_CephStorageTier = CephStorageTier::ARCHIVE;
+                else if (ParamsToLower(elem.second)== "tape") 
+                    m_CephStorageTier = CephStorageTier::ARCHIVE;
+            }
+            else if(ParamsToLower(elem.first) == "cephconffilepath") 
+            {   
+                m_CephConfFilePath = elem.second;
+            }
+        }
     
-      /* Read a Ceph configuration file to configure the cluster handle. */
-    ret = m_rcluster.conf_read_file("/share/ceph.conf");
-    if (ret < 0) 
-    {
-        throw std::ios_base::failure("Transport::Ceph Couldn't read the Ceph configuration file! error= "  + std::to_string(ret) + "\n");
-    }
-        
-      /* Connect to the cluster */
-    ret = m_rcluster.connect();
-    if (ret < 0) 
-    {
-        throw std::ios_base::failure("Transport::Ceph Couldn't connect to cluster! error= "  + std::to_string(ret) + "\n");
-    }
-
-     /* Set up the storage and archive pools for tieiring. */
-    ret = m_rcluster.ioctx_create("storage_pool", m_io_ctx_storage);
-    if (ret < 0)
-    {
-        throw std::ios_base::failure("Transport::Ceph Couldn't set up ioctx! error= "  + std::to_string(ret) + "\n");
-    }
-
-    ret = m_rcluster.ioctx_create("archive_pool", m_io_ctx_archive);
-    if (ret < 0)
-   {
-        throw std::ios_base::failure("Transport::Ceph Couldn't set up ioctx! error= "  + std::to_string(ret) + "\n");
-    }
-      
+    }   
+    
+    if (debugMode) DebugPrint("constructor:rank:");
+    
+   
 }
 
 // todo:
@@ -84,11 +112,10 @@ CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const bool debugMode)
 
 CephObjTrans::~CephObjTrans() {}
 
-/** Essentially a no-op, only add some checking here as needed.
- * because we will not know all of the unique oids at this point 
- */
-void CephObjTrans::Open(const std::string &name, const Mode openMode)
+void CephObjTrans::Open(const std::string &name, const Mode openMode) 
 {
+    std::cout << "CephObjTrans::Open(const std::string &name, const Mode OpenMode" << std::endl;
+    
     m_Name = name;
     m_OpenMode = openMode;
 
@@ -96,10 +123,11 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
     {
 
     case (Mode::Write):
-        // noop
+        std::cout << "CephObjTrans::Open:Mode::Write" << std::endl;
         break;
 
     case (Mode::Append):
+        std::cout << "CephObjTrans::Open:Mode::Append" << std::endl;
         // TODO: append to an existing object.
         // 1. check if obj exists
         // 2. check obj size.
@@ -107,6 +135,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
         break;
 
     case (Mode::Read):
+        std::cout << "CephObjTrans::Open:Mode::Read" << std::endl;
         // TODO
         break;
 
@@ -114,9 +143,57 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
         // noop
         break;
     }
+    
+    //~ //  from Ken: https://github.com/kiizawa/siriusdev/blob/master/sample.cpp
+    //~ // need to get cluster handle, storage tier pool handle, archive tier pool handle here   
 
+    int ret = 0;
+    uint64_t flags;
+    
+    //~ /* Initialize the cluster handle with the "ceph" cluster name and "client.admin" user */
+    std::cout << "CephObjTrans::Open:m_RadosCluster.init2(" << m_CephUserName << "," << m_CephClusterName << ") now:" << std::endl;
+    ret = m_RadosCluster.init2(m_CephUserName.c_str(), m_CephClusterName.c_str(), flags);
+    if (ret < 0) 
+    {
+         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't initialize the cluster handle! error= "  + std::to_string(ret) + "\n");
+    }
+    
+      /* Read a Ceph configuration file to configure the cluster handle. */
+    std::cout << "m_RadosCluster.conf_read_file(" << m_CephConfFilePath << ") now:" << std::endl;
+    ret = m_RadosCluster.conf_read_file(m_CephConfFilePath.c_str());
+    if (ret < 0) 
+    {
+        throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't read the Ceph configuration file! error= "  + std::to_string(ret) + "\n");
+    }
+        
+      /* Connect to the cluster */
+    std::cout << "CephObjTrans::Open:m_RadosCluster.connect() now:" << std::endl;
+    ret = m_RadosCluster.connect();
+    if (ret < 0) 
+    {
+        throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't connect to cluster! error= "  + std::to_string(ret) + "\n");
+    }
+
+     /* Set up the storage and archive pools for tieiring. */
+    std::cout << "CephObjTrans::Open:m_RadosCluster.ioctx_create(" << "storage_pool" << "," << "m_IoCtxStorage" << ") now:" << std::endl;
+    ret = m_RadosCluster.ioctx_create("storage_pool", m_IoCtxStorage);
+    if (ret < 0)
+    {
+        throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't set up ioctx! error= "  + std::to_string(ret) + "\n");
+    }
+
+    std::cout << "CephObjTrans::Open:CephObjTrans::Open:m_RadosCluster.ioctx_create(" << "archive_pool" << "," << "m_IoCtxArchive" << ") now:" << std::endl;
+    ret = m_RadosCluster.ioctx_create("archive_pool", m_IoCtxArchive);
+    if (ret < 0)
+   {
+        throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't set up ioctx! error= "  + std::to_string(ret) + "\n");
+    }
+    
+    std::cout << "CephObjTrans::Open:m_RadosCluster init done.(" << "archive_pool" << "," << "m_IoCtxArchive" << ") now:" << std::endl;
     m_IsOpen = true;
 }
+    
+
 
 /* test if oid already exists in the current ceph cluster */
 bool CephObjTrans::ObjExists(const std::string &oid) 
@@ -127,14 +204,13 @@ bool CephObjTrans::ObjExists(const std::string &oid)
     uint64_t psize;
     std::time_t pmtime;
       //rados_ioctx_t io;  
-    return ( m_io_ctx_storage.stat(oid, &psize, &pmtime) == 0) ? true : false;
+    return ( m_IoCtxStorage.stat(oid, &psize, &pmtime) == 0) ? true : false;
     //return (rados_stat(io, m_oname.c_str(), &psize, &pmtime) == 0) ? true : false;
     // could check -ENOENT
 }
 
-void CephObjTrans::OWrite(std::string oid, const librados::bufferlist *bl, size_t size, size_t start)
+void CephObjTrans::Write(std::string oid, const librados::bufferlist *bl, size_t size, size_t start)
 {
-    
     
 
 }
@@ -142,73 +218,22 @@ void CephObjTrans::OWrite(std::string oid, const librados::bufferlist *bl, size_
 
 void CephObjTrans::Write(const char *buffer, size_t size, size_t start)
 {
-    //~ auto lf_Write = [&](const char *buffer, size_t size) {
-
-        //~ ProfilerStart("write");
-        //~ const auto writtenSize = write(m_FileDescriptor, buffer, size);
-        //~ ProfilerStop("write");
-
-        //~ if (writtenSize == -1)
-        //~ {
-            //~ throw std::ios_base::failure("ERROR: couldn't write to file " +
-                                         //~ m_Name +
-                                         //~ ", in call to FileDescriptor Write\n");
-        //~ }
-
-        //~ if (static_cast<size_t>(writtenSize) != size)
-        //~ {
-            //~ throw std::ios_base::failure(
-                //~ "ERROR: written size + " + std::to_string(writtenSize) +
-                //~ " is not equal to intended size " + std::to_string(size) +
-                //~ " in file " + m_Name + ", in call to FileDescriptor Write\n");
-        //~ }
-    //~ };
-
-    //~ if (start != MaxSizeT)
-    //~ {
-        //~ const auto newPosition = lseek(m_FileDescriptor, start, SEEK_SET);
-
-        //~ if (static_cast<size_t>(newPosition) != start)
-        //~ {
-            //~ throw std::ios_base::failure(
-                //~ "ERROR: couldn't move to start position " +
-                //~ std::to_string(start) + " in file " + m_Name +
-                //~ ", in call to POSIX lseek\n");
-        //~ }
-    //~ }
-
-    //~ if (size > DefaultMaxFileBatchSize)
-    //~ {
-        //~ const size_t batches = size / DefaultMaxFileBatchSize;
-        //~ const size_t remainder = size % DefaultMaxFileBatchSize;
-
-        //~ size_t position = 0;
-        //~ for (size_t b = 0; b < batches; ++b)
-        //~ {
-            //~ lf_Write(&buffer[position], DefaultMaxFileBatchSize);
-            //~ position += DefaultMaxFileBatchSize;
-        //~ }
-        //~ lf_Write(&buffer[position], remainder);
-    //~ }
-    //~ else
-    //~ {
-        //~ lf_Write(buffer, size);
-    //~ }
+    std::string msg = ("ERROR:  CephObjTrans doesn't implement \n" \
+            "Write(const char *buffer, size_t size, size_t start), use \n" \
+            "Write(std::string oid, const librados::bufferlist *bl, size_t size, size_t start) \n");
+    throw std::invalid_argument(msg);
 }
 
 void CephObjTrans::Read(char *buffer, size_t size, size_t start)
 {
-
+    std::string msg = ("ERROR:  CephObjTrans doesn't implement \n "\
+            "Read(char *buffer, size_t size, size_t start) yet \n");
+    throw std::invalid_argument(msg);
 }
 
 size_t CephObjTrans::GetSize()
 {
     struct stat fileStat;
-    //~ if (fstat(m_FileDescriptor, &fileStat) == -1)
-    //~ {
-        //~ throw std::ios_base::failure("ERROR: couldn't get size of file " +
-                                     //~ m_Name + "\n");
-    //~ }
     //~ return static_cast<size_t>(fileStat.st_size);
 }
 
@@ -216,18 +241,25 @@ void CephObjTrans::Flush() {}
 
 void CephObjTrans::Close()
 {
-
     m_IsOpen = false;
 }
 
 void CephObjTrans::CheckFile(const std::string hint) const
 {
-    //~ if (m_FileDescriptor == -1)
-    //~ {
-        //~ throw std::ios_base::failure("ERROR: " + hint + "\n");
-    //~ }
 }
 
 
 } // end namespace transport
 } // end namespace adios2
+
+
+//~ std::vector<adios2::Params> v = parametersVector;
+//~ for (std::vector<adios2::Params>::iterator it = v.begin(); it != v.end(); ++it)
+//~ {
+    //~ adios2::Params p = *it;
+    //~ for (std::map<std::string,std::string>::iterator i=p.begin(); i!=p.end(); ++i)
+    //~ { 
+        //~ std::cout << "CephObjTrans::Open:Transp Params: " << i->first << " => " << i->second << '\n';
+    //~ }
+//~ }
+    

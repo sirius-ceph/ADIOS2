@@ -11,6 +11,9 @@
 #ifndef ADIOS2_TOOLKIT_TRANSPORT_CEPHOBJTRANS_H_
 #define ADIOS2_TOOLKIT_TRANSPORT_CEPHOBJTRANS_H_
 
+#include <algorithm>
+#include <string>
+
 #include <rados/librados.hpp>
 #include <rados/rados_types.hpp>
 #include "adios2/ADIOSConfig.h"
@@ -21,18 +24,28 @@ namespace adios2
 namespace transport
 {
 
+    /** Used to set Ceph Storage tier for writes */
+enum class CephStorageTier
+{
+    FAST,  // e.g. SSD
+    SLOW,  // e.g., HDD
+    ARCHIVE  // e.g., tape
+};
+
 class CephObjTrans : public Transport
 {
 
 public:
-    CephObjTrans(MPI_Comm mpiComm, const bool debugMode);
+    CephObjTrans(MPI_Comm mpiComm, const std::vector<Params> &params, const bool debugMode);
 
     ~CephObjTrans();
 
+
     void Open(const std::string &name, const Mode openMode) final;
+   // void Open(const std::string &name, const Mode openMode, const std::vector<Params> &parametersVector);
 
     void Write(const char *buffer, size_t size, size_t start = MaxSizeT) final;
-    void OWrite(std::string oid, const librados::bufferlist *bl, size_t size, size_t start);
+    void Write(std::string oid, const librados::bufferlist *bl, size_t size, size_t start);
 
 
     void Read(char *buffer, size_t size, size_t start = MaxSizeT) final;
@@ -49,19 +62,24 @@ private:
     /** POSIX file handle returned by Open */
    // int m_FileDescriptor = -1;
     void CheckFile(const std::string hint) const;
+    static std::string ParamsToLower(std::string s);
+    void DebugPrint(std::string msg);
 
     /** unique prefix for objects denoting the experiment */
-    std::string m_oidPrefix =  "";
+    //std::string m_oidPrefix =  "";
 
     bool ObjExists(const std::string &oid);
-    librados::Rados m_rcluster;
-    librados::IoCtx m_io_ctx_storage;
-    librados::IoCtx m_io_ctx_archive;
+    librados::Rados m_RadosCluster;
+    librados::IoCtx m_IoCtxStorage;
+    librados::IoCtx m_IoCtxArchive;
 //rados.ioctx_create(pool_name, io_ctx);
 //librados::IoCtx io_ctx;
 
-    const std::string m_rcluster_name = "ceph";
-    const std::string m_user_name = "client.admin";
+    CephStorageTier m_CephStorageTier;
+    std::string m_CephClusterName;
+    std::string m_CephUserName;
+    std::string m_CephConfFilePath;
+
 
 };
 

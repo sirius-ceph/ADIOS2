@@ -41,7 +41,7 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     const size_t currentStep = CurrentStep();
     const size_t flushStepsCount =m_FlushStepsCount;
     
-#ifdef USE_CEPH_OBJ_TRANS
+//#ifdef USE_CEPH_OBJ_TRANS
     //if (m_bl->length() + varsize >= m_TargetObjSize) 
     if (m_CurrentStep % m_FlushStepsCount == 0)
     {
@@ -54,7 +54,7 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
 
         size_t size = m_bl->length();
         size_t offset = 0;  // zero for write full, get offset for object append.
-        transport->OWrite(oid, m_bl, size, offset);
+        transport->Write(oid, m_bl, size, offset);
             
           // TODO: write current BL as obj to ceph.
           //       The signature should be like this?
@@ -70,7 +70,7 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     m_TimestepStart = -1;
     m_TimestepEnd = -1;
     
-#endif /* USE_CEPH_OBJ_TRANS */
+//#endif /* USE_CEPH_OBJ_TRANS */
 
     // BPFileWriter: try to resize buffer to hold new varsize if needed
     // format::BP3Base::ResizeResult resizeResult = m_BP3Serializer.ResizeBuffer(

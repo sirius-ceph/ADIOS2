@@ -35,10 +35,10 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
     
     MPI_Comm_rank(mpiComm, &m_WriterRank);
     Init();
-#ifdef USE_CEPH_OBJ_TRANS
+//#ifdef USE_CEPH_OBJ_TRANS
     InitTransports2(mpiComm);
-#endif /* USE_CEPH_OBJ_TRANS */
-    
+//#endif /* USE_CEPH_OBJ_TRANS */
+        
     if (m_Verbosity == 5)
     {
         std::cout << "CephWriter::CephWriter() Engine constructor end (Called from IO.Open)." 
@@ -72,14 +72,11 @@ void CephWriter::PerformPuts()
     m_NeedPerformPuts = false;
     
     // BPFileWriter:
-    //m_BP3Serializer.ResizeBuffer(m_BP3Serializer.m_DeferredVariablesDataSize, "in call to PerformPuts");
-
     //~ for (const auto &variableName : m_BP3Serializer.m_DeferredVariables)
     //~ {
         //~ PutSync(variableName);
     //~ }
 
-    //m_BP3Serializer.m_DeferredVariables.clear();
 }
 
 void CephWriter::EndStep()
@@ -94,14 +91,6 @@ void CephWriter::EndStep()
     {
         std::cout << "CephWriter " << m_WriterRank << "   EndStep()\n";
     }
-
-    // BPFileWriter:
-    //~ if (m_BP3Serializer.m_DeferredVariables.size() > 0)
-    //~ {
-        //~ PerformPuts();
-    //~ }
-
-    //~ m_BP3Serializer.SerializeData(m_IO, true); // true: advances step
 
     //~ const size_t currentStep = m_BP3Serializer.m_MetadataSet.TimeStep - 1;
     //~ const size_t flushStepsCount = m_BP3Serializer.m_FlushStepsCount;
@@ -126,37 +115,8 @@ void CephWriter::DoClose(const int transportIndex)
     }
     
     // if there are deferred vars: puts then write and close
-    
-    // BPFileWriter:
-    //~ if (m_BP3Serializer.m_DeferredVariables.size() > 0)
-    //~ {
-        //~ PerformPuts();
-    //~ }
-
-    //~ // close bp buffer by serializing data and metadata
-    //~ m_BP3Serializer.CloseData(m_IO);
-    //~ // send data to corresponding transports
-    //~ m_FileDataManager.WriteFiles(m_BP3Serializer.m_Data.m_Buffer.data(),
-                                 //~ m_BP3Serializer.m_Data.m_Position,
-                                 //~ transportIndex);
-
-    //~ m_FileDataManager.CloseFiles(transportIndex);
-
-#ifdef USE_CEPH_OBJ_TRANS
     transport->Close();
-#endif /* USE_CEPH_OBJ_TRANS */
 
-    //~ if (m_BP3Serializer.m_Profiler.IsActive &&
-        //~ m_FileDataManager.AllTransportsClosed())
-    //~ {
-        //~ WriteProfilingJSONFile();
-    //~ }
-
-    //~ if (m_BP3Serializer.m_CollectiveMetadata &&
-        //~ m_FileDataManager.AllTransportsClosed())
-    //~ {
-        //~ WriteCollectiveMetadataFile();
-    //~ }
 }
 
 
@@ -164,9 +124,7 @@ void CephWriter::DoClose(const int transportIndex)
 void CephWriter::Init()
 {
     InitParameters();
-#ifndef USE_CEPH_OBJ_TRANS
     InitTransports();
-#endif /* USE_CEPH_OBJ_TRANS */
     InitBuffer();
 }
 
@@ -249,21 +207,24 @@ void CephWriter::InitTransports()
  
 void CephWriter::InitTransports2(MPI_Comm mpiComm)
 {
-  if (m_Verbosity == 5)
+    if (m_Verbosity == 5)
     {
-      std::cout << "CephWriter " << m_WriterRank << " InitTransports("
-            << m_Name << ")\n";
+        std::cout << "CephWriter " << m_WriterRank << " InitTransports2("
+                << m_Name << ")\n";
     }
 
-  // TODO need to add support for aggregators here later
-  if (m_IO.m_TransportsParameters.empty())
+    // TODO need to add support for aggregators here later
+    if (m_IO.m_TransportsParameters.empty())
     {
-      Params defaultTransportParameters;
-      defaultTransportParameters["transport"] = "CephObjTrans";
-      m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
+        Params defaultTransportParameters;
+        defaultTransportParameters["transport"] = "CephObjTrans";
+        m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
     }
-  transport = std::shared_ptr<transport::CephObjTrans>(new transport::CephObjTrans(mpiComm, true));
-  //transport->Open(const std::string &name, const Mode openMode);
+        transport = std::shared_ptr<transport::CephObjTrans>(new transport::CephObjTrans(mpiComm, m_IO.m_TransportsParameters, true));
+        const std::string name = "somename";
+        const Mode mode = Mode::Write;
+       // transport->Open(name, mode);
+        transport->Open(name, mode);
 }
   
 void CephWriter::InitBuffer()
