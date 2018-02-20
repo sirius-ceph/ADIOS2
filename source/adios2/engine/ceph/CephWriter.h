@@ -37,13 +37,12 @@ public:
     ~CephWriter();
 
     StepStatus BeginStep(StepMode mode, const float timeoutSeconds = 0.f) final;
+    size_t CurrentStep();
     void PerformPuts() final;
     void EndStep() final;
 
 
 private:
-    // BPFileWriter: 
-    // format::BP3Serializer m_BP3Serializer;  /** Single object controlling BP buffering */
     
     // Engine vars
     int m_Verbosity = 0;
@@ -51,24 +50,25 @@ private:
     int m_CurrentStep = -1;     // steps start from 0
 
     // Ceph vars
-    int m_TargetObjSize = 8388608;  // default object size of 8MB  
-    librados::bufferlist *m_bl = NULL;
+    int m_CephTargetObjSize;  // make default object size 8MB 
+    librados::bufferlist m_bl; // = NULL;
     int m_TimestepStart = -1;
     int m_TimestepEnd = -1;
 
     // EMPRESS vars
-    std::string m_UniqueExperimentName;
+    std::string m_ExpName;
     int m_FlushStepsCount = 1;
-    std::string Objector(std::string prefix, std::string vars, int rank, int timestepStart, int timestepEnd);
+    std::string Objector(std::string prefix, std::string vars, int rank, 
+        int timestepStart, int timestepEnd);
 
     // EndStep must call PerformPuts if necessary
     bool m_NeedPerformPuts = false;
 
     void Init() final;
     void InitParameters() final;
-    void InitTransports() final;
-    void InitTransports2(MPI_Comm mpiComm);
-    void InitBuffer();  // NOTE: used in BPWriter but not part of abstract engine class.
+    void InitTransports() final {};
+    void InitTransports(MPI_Comm mpiComm);
+    void InitBuffer(); 
 
     std::shared_ptr<transport::CephObjTrans> transport;
 

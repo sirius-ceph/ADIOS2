@@ -44,7 +44,7 @@ public:
     void Open(const std::string &name, const Mode openMode) final;
    // void Open(const std::string &name, const Mode openMode, const std::vector<Params> &parametersVector);
 
-    void Write(const char *buffer, size_t size, size_t start = MaxSizeT) final;
+    void Write(const char *buffer, size_t size, size_t start = MaxSizeT) final {};
     void Write(std::string oid, const librados::bufferlist *bl, size_t size, size_t start);
 
 
@@ -58,29 +58,32 @@ public:
 
 
 private:
+    int m_Verbosity;
 
-    /** POSIX file handle returned by Open */
-   // int m_FileDescriptor = -1;
-    void CheckFile(const std::string hint) const;
+    // internal utils
+    void CheckFile(const std::string hint) const {};
     static std::string ParamsToLower(std::string s);
-    void DebugPrint(std::string msg);
+    void DebugPrint(std::string msg, bool printAll);
 
-    /** unique prefix for objects denoting the experiment */
-    //std::string m_oidPrefix =  "";
-
-    bool ObjExists(const std::string &oid);
-    librados::Rados m_RadosCluster;
-    librados::IoCtx m_IoCtxStorage;
-    librados::IoCtx m_IoCtxArchive;
-//rados.ioctx_create(pool_name, io_ctx);
-//librados::IoCtx io_ctx;
-
+    // ceph config vars
     CephStorageTier m_CephStorageTier;
     std::string m_CephClusterName;
     std::string m_CephUserName;
     std::string m_CephConfFilePath;
 
+    // ceph cluster vars
+    bool ObjExists(const std::string &oid);
+    librados::Rados m_RadosCluster;
+    librados::IoCtx m_IoCtxStorage;
+    librados::IoCtx m_IoCtxArchive;
+    //rados.ioctx_create(pool_name, io_ctx);
+    //librados::IoCtx io_ctx;
 
+    // ceph objector function vars.
+    std::string m_ExpName;
+    int m_JobId;
+    size_t m_TargetObjSize;
+    
 };
 
 } // end namespace transport

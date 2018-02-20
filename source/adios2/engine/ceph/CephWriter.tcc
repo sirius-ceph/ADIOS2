@@ -46,26 +46,26 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     if (m_CurrentStep % m_FlushStepsCount == 0)
     {
         std::string oid = Objector(
-                m_UniqueExperimentName, 
+                m_ExpName, 
                 (variable.m_Name + "VarDimInfo"),
                 m_WriterRank, 
                 m_TimestepStart,
                 m_TimestepEnd);
 
-        size_t size = m_bl->length();
+        size_t size = m_bl.length();
         size_t offset = 0;  // zero for write full, get offset for object append.
-        transport->Write(oid, m_bl, size, offset);
+        transport->Write(oid, &m_bl, size, offset);
             
           // TODO: write current BL as obj to ceph.
           //       The signature should be like this?
           //       transport->OWrite(std::string oid, const char *buffer, size_t size, size_t start = MaxSizeT)
           // TODO: clear BL.
-        m_bl->clear();
-        m_bl->zero();
+        m_bl.clear();
+        m_bl.zero();
     }
     
     // always add vals to buffer.
-    m_bl->append((const char*)values, varsize);
+    m_bl.append((const char*)values, varsize);
     
     m_TimestepStart = -1;
     m_TimestepEnd = -1;
@@ -82,14 +82,7 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     
     // BPFileWriter: addtest var metadata and data to buffer.
     // m_BP3Serializer.PutVariableMetadata(variable);
-    // m_BP3Serializer.PutVariablePayload(variable);
-    
-    if (m_Verbosity == 5)
-    {
-        std::cout << "CephWriter " << m_WriterRank << " PutSyncCommon(" 
-            << m_Name << ").  m_bl->length()=" << m_bl->length()
-            << ". m_bl->is_zero()=" << m_bl->is_zero() << "\n";
-    }   
+    // m_BP3Serializer.PutVariablePayload(variable);s 
 }
 
 template <class T>

@@ -11,12 +11,13 @@
 
     <io name="writer">
 
-    
         <engine type="Ceph">
+            <parameter key="JobId" value="112"/>
+            <parameter key="ExpName" value="XGCabc"/>
+            <parameter key="TargetObjSize" value="8388608"/>
             <parameter key="verbose" value="5"/>
-            <parameter key="MaxBufferSize" value="1Gb"/>
+            <parameter key="MaxBufferSize" value="2Gb"/>
             <parameter key="BufferGrowthFactor" value="1.25"/>
-            <parameter key="CephTargetObjSize" value="8388608"/>
         </engine>
         
         <transport type="CephObjTrans">

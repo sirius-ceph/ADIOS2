@@ -28,22 +28,17 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
 : Engine("CephWriter", io, name, mode, mpiComm)
 {
     m_EndMessage = " in call to IO Open CephWriter " + m_Name + "\n";
-
-    std::cout << "CephWriter::CephWriter() Engine constructor begin " 
-            << "(Called from IO.Open)." << " m_Name=" << m_Name 
-            << ".  m_WriterRank=" << m_WriterRank << std::endl;
     
     MPI_Comm_rank(mpiComm, &m_WriterRank);
     Init();
 //#ifdef USE_CEPH_OBJ_TRANS
-    InitTransports2(mpiComm);
+    InitTransports(mpiComm);
 //#endif /* USE_CEPH_OBJ_TRANS */
         
-    if (m_Verbosity == 5)
+    if (m_DebugMode)
     {
-        std::cout << "CephWriter::CephWriter() Engine constructor end (Called from IO.Open)." 
-            << " m_Name=" << m_Name << ".  m_WriterRank=" 
-            << m_WriterRank << std::endl;
+        std::cout << "CephWriter::constructor:rank("  << m_WriterRank 
+            << ") m_Name=" << m_Name << std::endl;
     }
     
 }
@@ -52,22 +47,22 @@ CephWriter::~CephWriter() = default;
 
 StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
 {
-    m_CurrentStep++; // 0 is the first step
+    if (m_CurrentStep < 0) m_CurrentStep++; // 0 is the first step
     if (m_TimestepStart < 0) m_TimestepStart = m_CurrentStep;
-    if (m_Verbosity == 5)
-      {
-        std::cout << "CephWriter " << m_WriterRank
-                  << "   BeginStep() new step " << m_CurrentStep << "\n";
-      }
+    if (m_DebugMode)
+    {
+        std::cout << "CephWriter::BeginStep:rank("  << m_WriterRank 
+                << ") m_CurrentStep++=" << m_CurrentStep << std::endl;
+    }
     return StepStatus::OK;
 }
 
 void CephWriter::PerformPuts()
 {
-    if (m_Verbosity == 5)
+    if (m_DebugMode)
     {
-        std::cout << "CephWriter " << m_WriterRank
-                  << "     PerformPuts()\n";
+        std::cout << "CephWriter::PerformPuts:rank("  << m_WriterRank 
+                << ") " << std::endl;
     }
     m_NeedPerformPuts = false;
     
@@ -82,15 +77,22 @@ void CephWriter::PerformPuts()
 void CephWriter::EndStep()
 {
     // CephWriter call to PutSyncCommon() here
+    int prev = m_CurrentStep;
+    m_CurrentStep++;  // advances timesteps
+    
+    if (m_DebugMode)
+    {
+        std::cout << "CephWriter::EndStep:rank("  << m_WriterRank 
+                << ") prevStep:" << prev << "; advanced to:" << m_CurrentStep 
+                << std::endl;
+    }
     
     if (m_NeedPerformPuts)
     {
         PerformPuts();
     }
-    if (m_Verbosity == 5)
-    {
-        std::cout << "CephWriter " << m_WriterRank << "   EndStep()\n";
-    }
+
+    
 
     //~ const size_t currentStep = m_BP3Serializer.m_MetadataSet.TimeStep - 1;
     //~ const size_t flushStepsCount = m_BP3Serializer.m_FlushStepsCount;
@@ -105,13 +107,19 @@ void CephWriter::EndStep()
     //~ }
 }
 
+size_t CephWriter::CurrentStep() 
+{
+    // only advanced during EndStep()
+    return m_CurrentStep;
+}
+
 void CephWriter::DoClose(const int transportIndex)
 {
     // forces a write, (DoClose and flush both force a write)
-    if (m_Verbosity == 5)
+    if (m_DebugMode)
     {
-        std::cout << "CephWriter " << m_WriterRank << " DoClose(" << m_Name
-                  << ")\n";
+        std::cout << "CephWriter::DoClose:rank("  << m_WriterRank 
+                << "). transportIndex=" << transportIndex << std::endl;
     }
     
     // if there are deferred vars: puts then write and close
@@ -143,15 +151,12 @@ ADIOS2_FOREACH_TYPE_1ARG(declare_type)
 
 void CephWriter::InitParameters()
 {
-    auto itParams = m_IO.m_Parameters.find("verbose");
-    if (itParams == m_IO.m_Parameters.end())
+    auto it = m_IO.m_Parameters.find("verbose");
+    if (it == m_IO.m_Parameters.end())
+        it = m_IO.m_Parameters.find("Verbose");
+    if (it != m_IO.m_Parameters.end())
     {
-        itParams = m_IO.m_Parameters.find("Verbose");
-    }
-
-    if (itParams != m_IO.m_Parameters.end())
-    {
-        m_Verbosity = std::stoi(itParams->second);
+        m_Verbosity = std::stoi(it->second);
         if (m_DebugMode)
         {
             if (m_Verbosity < 0 || m_Verbosity > 5)
@@ -161,96 +166,81 @@ void CephWriter::InitParameters()
                         "Open or Engine constructor\n");
         }
     }
-    itParams = m_IO.m_Parameters.find("TargetObjSize");
-    if (itParams != m_IO.m_Parameters.end())
+    
+    it = m_IO.m_Parameters.find("ExpName");
+    if (it == m_IO.m_Parameters.end())
+        it = m_IO.m_Parameters.find("expname");
+    if (it != m_IO.m_Parameters.end())
     {
-        m_TargetObjSize = std::stoi(itParams->second);
-        if (m_Verbosity == 5)
-        {
-            std::cout << "CephWriter set TargetObjSize=" << m_TargetObjSize << std::endl;
-        }
-    }
-    itParams = m_IO.m_Parameters.find("UniqueExperimentName");
-    if (itParams != m_IO.m_Parameters.end())
-    {
-        m_UniqueExperimentName = itParams->second;
-        if (m_Verbosity == 5)
-        {
-            std::cout << "CephWriter set UniqueExperimentName=" << m_UniqueExperimentName << std::endl;
-        }
+        Params p = {{it->first, it->second}};
+        m_IO.m_TransportsParameters.push_back(p);
     }
     
-    if (m_Verbosity == 5)
+    it = m_IO.m_Parameters.find("JobId");
+    if (it == m_IO.m_Parameters.end())
+        it = m_IO.m_Parameters.find("jobid");
+    if (it != m_IO.m_Parameters.end())
     {
-        std::cout << "CephWriter " << m_WriterRank << " InitParameters(" << m_Name
-            << ") done.\n";
+        Params p = {{it->first, it->second}};
+        m_IO.m_TransportsParameters.push_back(p);
+    }
+    
+    it = m_IO.m_Parameters.find("TargetObjSize");
+    if (it == m_IO.m_Parameters.end())
+        it = m_IO.m_Parameters.find("targetobjsize");
+    if (it != m_IO.m_Parameters.end())
+    {
+        Params p = {{it->first, it->second}};
+        m_IO.m_TransportsParameters.push_back(p);
+    }
+    
+    if (m_DebugMode)
+    {
+        std::cout << "CephWriter::InitParameters:rank("  << m_WriterRank 
+                << ")" << std::endl;
     }
 }
 
-void CephWriter::InitTransports()
-{
-    
-    if (m_Verbosity == 5)
-    {
-        std::cout << "CephWriter " << m_WriterRank << " InitTransports("
-        << m_Name << ")\n";
-    }
-
-    // TODO need to add support for aggregators here later
-    if (m_IO.m_TransportsParameters.empty())
-    {
-        Params defaultTransportParameters;
-        defaultTransportParameters["transport"] = "CephObjTrans";
-        m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
-    }
-}
  
-void CephWriter::InitTransports2(MPI_Comm mpiComm)
+void CephWriter::InitTransports(MPI_Comm mpiComm)
 {
-    if (m_Verbosity == 5)
+    if (m_DebugMode)
     {
-        std::cout << "CephWriter " << m_WriterRank << " InitTransports2("
-                << m_Name << ")\n";
+        std::cout << "CephWriter::InitTransports:rank("  << m_WriterRank 
+                << ")" << std::endl;
     }
-
-    // TODO need to add support for aggregators here later
-    if (m_IO.m_TransportsParameters.empty())
-    {
-        Params defaultTransportParameters;
-        defaultTransportParameters["transport"] = "CephObjTrans";
-        m_IO.m_TransportsParameters.push_back(defaultTransportParameters);
-    }
-        transport = std::shared_ptr<transport::CephObjTrans>(new transport::CephObjTrans(mpiComm, m_IO.m_TransportsParameters, true));
-        const std::string name = "somename";
-        const Mode mode = Mode::Write;
-       // transport->Open(name, mode);
-        transport->Open(name, mode);
+    
+    transport = std::shared_ptr<transport::CephObjTrans>(
+        new transport::CephObjTrans(
+                mpiComm, m_IO.m_TransportsParameters, true));
+    const std::string name = "fname-rank-" + std::to_string(m_WriterRank);
+    const Mode mode = Mode::Write;
+    transport->Open(name, mode);
 }
   
 void CephWriter::InitBuffer()
 {
-    m_bl = new librados::bufferlist(m_TargetObjSize);
-    m_bl->clear();
-    m_bl->zero();
-    
-  
-    if (m_Verbosity == 5)
+    if (m_DebugMode)
     {
-        std::cout << "CephWriter " << m_WriterRank << " InitBuffer(" 
-            << m_Name << ").  m_bl->length()=" << m_bl->length()
-            << ". m_bl->is_zero()=" << m_bl->is_zero() << ". m_bl->length()=" 
-            << m_bl->length() << "\n";
-    }    
+        std::cout << "CephWriter::InitBuffer:rank("  << m_WriterRank 
+                << ")" << std::endl;
+    }
+    
+    //m_bl = new librados::bufferlist(m_CephTargetObjSize*2);  // ?good size?
+    m_bl = librados::bufferlist(); 
+    m_bl.clear();
+    m_bl.zero();
 }
 
 // Generator for unique oids in the experimental space.
-std::string CephWriter::Objector(
-        std::string prefix, 
-        std::string varInfo, 
-        int rank, 
-        int timestepStart, 
-        int timestepEnd) 
+std::string CephWriter::Objector(std::string prefix, std::string varInfo, 
+    int rank, int timestepStart, int timestepEnd) 
 {
+    if (m_DebugMode)
+    {
+        std::cout << "CephWriter::Objector:rank("  << m_WriterRank 
+                << ")" << std::endl;
+    }
     // TODO:  Implement per Margaret's prototype.
     std::string oid = (
             prefix + 
@@ -260,14 +250,6 @@ std::string CephWriter::Objector(
             std::to_string(timestepEnd)
     );
     
-    if (m_Verbosity == 5)
-    {
-        std::cout << "CephWriter " << m_WriterRank << "     Objector("
-                << "prefix=" << prefix << " varInfo=" << varInfo 
-                << "rank=" << rank << "timestepStart=" << timestepStart 
-                << "timestepEnd=" << timestepEnd << "oid=" << oid << ")\n";
-    }
-
     return oid;    
 }
 
