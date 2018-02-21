@@ -11,6 +11,7 @@
 #include "CephObjMover.h"
 #include <rados/librados.hpp>
 #include <rados/rados_types.hpp>
+#include <rados/buffer.h>
 #include <iostream>
 #include <string>
 
@@ -39,14 +40,7 @@ std::string CephObjTrans::ParamsToLower(std::string s)
 
 CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const std::vector<Params> &params,
     const bool debugMode)
-: Transport("CephObjTrans", "cephlibrados", mpiComm, debugMode), 
-  m_CephStorageTier(CephStorageTier::FAST),
-  m_CephClusterName("ceph"),
-  m_CephUserName("client.admin"),
-  m_CephConfFilePath("/share/ceph.conf"),
-  m_TargetObjSize(8388608),
-  m_ExpName("MyExperimentName"),
-  m_JobId(112)
+: Transport("CephObjTrans", "cephlibrados", mpiComm, debugMode)
 {
     // fyi: this->m_MPIComm; // (is avail in the transport class)
     
@@ -96,7 +90,7 @@ CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const std::vector<Params> &params,
             }
             else if(ParamsToLower(elem.first) == "jobid") 
             {   
-                m_JobId = std::stoi(elem.second);
+                m_JobId = elem.second;
             }
             else if(ParamsToLower(elem.first) == "targetobjsize") 
             {   
@@ -118,16 +112,7 @@ CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const std::vector<Params> &params,
     if (debugMode) 
         DebugPrint("Constructor:rank(" + std::to_string(m_RankMPI) + ")", 
                 true);
-    
 }
-
-// todo:
-// dont need file handle.  need to pass in oid not start offset.
-// need write(*buf, size, oid)
-// need chekcsize(oid)
-// need check if exists(oid) : globally fatal if collision.
-// skip append mode for now.
-
 
 CephObjTrans::~CephObjTrans() {}
 
@@ -139,27 +124,26 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
 
     switch (m_OpenMode)
     {
+        case (Mode::Write):
+            mode = "Write";
+            break;
 
-    case (Mode::Write):
-        mode = "Write";
-        break;
+        case (Mode::Append):
+            mode = "Append";
+            // TODO: append to an existing object.
+            // 1. check if obj exists
+            // 2. check obj size.
+            // 3. check objector params
+            break;
 
-    case (Mode::Append):
-        mode = "Append";
-        // TODO: append to an existing object.
-        // 1. check if obj exists
-        // 2. check obj size.
-        // 3. check objector params
-        break;
+        case (Mode::Read):
+            mode = "Read";
+            // TODO
+            break;
 
-    case (Mode::Read):
-        mode = "Read";
-        // TODO
-        break;
-
-    default:
-        // noop
-        break;
+        default:
+            // noop
+            break;
     }
     
     if(m_DebugMode)
@@ -172,6 +156,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
     int ret = 0;
     uint64_t flags;
     
+#ifdef USE_CEPH_OBJ_TRANS
     /* Initialize the cluster handle with cluster name  user name */
     if(m_DebugMode)
     {
@@ -236,6 +221,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
             "set up ioctx! error= "  + std::to_string(ret) + "\n");
     }
+#endif /* USE_CEPH_OBJ_TRANS */
     
     m_IsOpen = true;
 }
@@ -243,21 +229,24 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
 /* test if oid already exists in the current ceph cluster */
 bool CephObjTrans::ObjExists(const std::string &oid) 
 {    
-    // http://docs.ceph.com/docs/master/rados/api/librados/#c.rados_ioctx_    
-    // librados::IoCtx io_ctx_storage;    
+    // http://docs.ceph.com/docs/master/rados/api/librados/#c.rados_ioctx_
+    // librados::IoCtx io_ctx_storage;
+    // rados_ioctx_t io;
+    // return (rados_stat(io, m_oname.c_str(), &psize, &pmtime) == 0) ? true : false;
+    // could check -ENOENT
     
     uint64_t psize;
     std::time_t pmtime;
-      //rados_ioctx_t io;  
     return ( m_IoCtxStorage.stat(oid, &psize, &pmtime) == 0) ? true : false;
-    //return (rados_stat(io, m_oname.c_str(), &psize, &pmtime) == 0) ? true : false;
-    // could check -ENOENT
+
 }
 
-void CephObjTrans::Write(std::string oid, const librados::bufferlist *bl, 
+void CephObjTrans::Write(std::string oid, librados::bufferlist *bl, 
     size_t size, size_t start)
 {
-    
+    if (m_DebugMode) 
+        DebugPrint("Write:rank(" + std::to_string(m_RankMPI) + ")" \
+                + "oid=" + oid + ". size=" + std::to_string(size) + ". bl.length()=" + std::to_string(bl->length()), false);
 
 }
 
@@ -269,10 +258,15 @@ void CephObjTrans::Read(char *buffer, size_t size, size_t start)
     throw std::invalid_argument(msg);
 }
 
-size_t CephObjTrans::GetSize()
+size_t CephObjTrans::GetObjSize(std::string oid)
 {
     struct stat fileStat;
     //~ return static_cast<size_t>(fileStat.st_size);
+    
+    uint64_t psize;
+    std::time_t pmtime;
+    m_IoCtxStorage.stat(oid, &psize, &pmtime);
+    return psize;
 }
 
 void CephObjTrans::Flush() {}

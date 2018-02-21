@@ -50,8 +50,8 @@ private:
     int m_CurrentStep = -1;     // steps start from 0
 
     // Ceph vars
-    int m_CephTargetObjSize;  // make default object size 8MB 
-    librados::bufferlist m_bl; // = NULL;
+    int m_CephTargetObjSize = 8388608; // default object size 8MB 
+    librados::bufferlist *m_bl = NULL;
     int m_TimestepStart = -1;
     int m_TimestepEnd = -1;
 

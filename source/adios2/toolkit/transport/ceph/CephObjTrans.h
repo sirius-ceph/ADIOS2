@@ -19,6 +19,10 @@
 #include "adios2/ADIOSConfig.h"
 #include "adios2/toolkit/transport/Transport.h"
 
+//#ifndef USE_CEPH_OBJ_TRANS
+//#define USE_CEPH_OBJ_TRANS 0
+//#endif
+
 namespace adios2
 {
 namespace transport
@@ -45,12 +49,13 @@ public:
    // void Open(const std::string &name, const Mode openMode, const std::vector<Params> &parametersVector);
 
     void Write(const char *buffer, size_t size, size_t start = MaxSizeT) final {};
-    void Write(std::string oid, const librados::bufferlist *bl, size_t size, size_t start);
+    void Write(std::string oid, librados::bufferlist *bl, size_t size, size_t start);
 
 
     void Read(char *buffer, size_t size, size_t start = MaxSizeT) final;
 
-    size_t GetSize() final;
+    size_t GetSize() final {};
+    size_t GetObjSize(std::string oid);
 
     /** Does nothing, each write is supposed to flush */
     void Flush() final;
@@ -61,12 +66,12 @@ private:
     int m_Verbosity;
 
     // internal utils
-    void CheckFile(const std::string hint) const {};
+    //void CheckFile(const std::string hint) const {};
     static std::string ParamsToLower(std::string s);
     void DebugPrint(std::string msg, bool printAll);
 
     // ceph config vars
-    CephStorageTier m_CephStorageTier;
+    CephStorageTier m_CephStorageTier = CephStorageTier::FAST;
     std::string m_CephClusterName;
     std::string m_CephUserName;
     std::string m_CephConfFilePath;
@@ -81,8 +86,8 @@ private:
 
     // ceph objector function vars.
     std::string m_ExpName;
-    int m_JobId;
-    size_t m_TargetObjSize;
+    std::string m_JobId;
+    size_t m_TargetObjSize = 8388608;
     
 };
 

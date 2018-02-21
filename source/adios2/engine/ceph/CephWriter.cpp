@@ -31,9 +31,9 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
     
     MPI_Comm_rank(mpiComm, &m_WriterRank);
     Init();
-//#ifdef USE_CEPH_OBJ_TRANS
+#ifdef USE_CEPH_OBJ_TRANS
     InitTransports(mpiComm);
-//#endif /* USE_CEPH_OBJ_TRANS */
+#endif /* USE_CEPH_OBJ_TRANS */
         
     if (m_DebugMode)
     {
@@ -92,19 +92,6 @@ void CephWriter::EndStep()
         PerformPuts();
     }
 
-    
-
-    //~ const size_t currentStep = m_BP3Serializer.m_MetadataSet.TimeStep - 1;
-    //~ const size_t flushStepsCount = m_BP3Serializer.m_FlushStepsCount;
-
-    //~ if (currentStep % flushStepsCount)
-    //~ {
-        //~ m_BP3Serializer.SerializeData(m_IO);
-        //~ m_FileDataManager.WriteFiles(m_BP3Serializer.m_Data.m_Buffer.data(),
-                                     //~ m_BP3Serializer.m_Data.m_Position);
-        //~ m_BP3Serializer.ResetBuffer(m_BP3Serializer.m_Data);
-        //~ WriteCollectiveMetadataFile();
-    //~ }
 }
 
 size_t CephWriter::CurrentStep() 
@@ -123,7 +110,10 @@ void CephWriter::DoClose(const int transportIndex)
     }
     
     // if there are deferred vars: puts then write and close
+
+    #ifdef USE_CEPH_OBJ_TRANS
     transport->Close();
+#endif /* USE_CEPH_OBJ_TRANS */
 
 }
 
@@ -226,10 +216,12 @@ void CephWriter::InitBuffer()
                 << ")" << std::endl;
     }
     
-    //m_bl = new librados::bufferlist(m_CephTargetObjSize*2);  // ?good size?
-    m_bl = librados::bufferlist(); 
-    m_bl.clear();
-    m_bl.zero();
+    //m_bl = new librados::bufferlist(m_CephTargetObjSize*2); 
+#ifdef USE_CEPH_OBJ_TRANS
+    m_bl = new librados::bufferlist(m_CephTargetObjSize);  // ?good size?
+    m_bl->clear();
+    m_bl->zero();
+#endif /* USE_CEPH_OBJ_TRANS */
 }
 
 // Generator for unique oids in the experimental space.
