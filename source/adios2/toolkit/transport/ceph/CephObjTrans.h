@@ -63,9 +63,8 @@ private:
     int m_Verbosity;
 
     // internal utils
-    //void CheckFile(const std::string hint) const {};
-    static std::string ParamsToLower(std::string s);
     void DebugPrint(std::string msg, bool printAll);
+    static std::string ParamsToLower(std::string s);
 
     // ceph config vars
     CephStorageTier m_CephStorageTier = CephStorageTier::FAST;

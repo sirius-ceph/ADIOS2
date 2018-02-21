@@ -22,6 +22,32 @@
 
 namespace adios2
 {
+    
+// Generator for unique oids in the experimental space.
+// static
+std::string CephWriter::Objector(std::string jobId, std::string expName, int timestep,
+            std::string varName, int varVersion, std::vector<int> dimOffsets, int rank)
+{
+    std::string offsets = "-";
+    for (int n : dimOffsets) 
+    {
+        offsets += (std::to_string(n) + "-");
+    }
+    
+    // TODO:  Implement per Margaret's prototype.
+    std::string oid = (
+            jobId + "-" + 
+            expName + "-" + 
+            std::to_string(timestep) + "-" + 
+            varName + "-" + 
+            std::to_string(varVersion) + 
+            offsets + "-" + 
+            "rank-" + 
+            std::to_string(rank)
+    );
+
+    return oid;
+}
 
 CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
                            MPI_Comm mpiComm)
@@ -226,31 +252,5 @@ void CephWriter::InitBuffer()
     m_bl->zero();
 #endif /* USE_CEPH_OBJ_TRANS */
 }
-
-// Generator for unique oids in the experimental space.
-std::string CephWriter::Objector(std::string jobId, std::string expName, int timestep,
-            std::string varName, int varVersion, std::vector<int> dimOffsets, int rank)
-{
-    std::string offsets = "-";
-    for (int n : dimOffsets) 
-    {
-        offsets += (std::to_string(n) + "-");
-    }
-    
-    // TODO:  Implement per Margaret's prototype.
-    std::string oid = (
-            jobId + "-" + 
-            expName + "-" + 
-            std::to_string(timestep) + "-" + 
-            varName + "-" + 
-            std::to_string(varVersion) + 
-            offsets + "-" + 
-            "rank-" + 
-            std::to_string(rank)
-    );
-
-    return oid;
-}
-
 
 } // end namespace adios2

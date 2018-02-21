@@ -57,8 +57,8 @@ private:
     // EMPRESS vars
     std::string m_ExpName;
     std::string m_JobId;
-    int m_FlushStepsCount = 1;
-    std::string Objector(std::string jobId, std::string expName, int timestep,
+    int m_FlushStepsCount = 1;  // default for now
+    static std::string Objector(std::string jobId, std::string expName, int timestep,
             std::string varName, int varVersion, std::vector<int> dimOffsets, int rank);
 
     // EndStep must call PerformPuts if necessary
@@ -67,7 +67,6 @@ private:
     void Init() final;
     void InitParameters() final;
     void InitTransports() final;
-    //void InitTransports(MPI_Comm mpiComm);
     void InitBuffer(); 
 
     std::shared_ptr<transport::CephObjTrans> transport;
