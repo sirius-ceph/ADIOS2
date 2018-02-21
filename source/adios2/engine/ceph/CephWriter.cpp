@@ -31,24 +31,24 @@ CephWriter::CephWriter(IO &io, const std::string &name, const Mode mode,
     
     MPI_Comm_rank(mpiComm, &m_WriterRank);
     Init();
-#ifdef USE_CEPH_OBJ_TRANS
-    InitTransports(mpiComm);
-#endif /* USE_CEPH_OBJ_TRANS */
         
     if (m_DebugMode)
     {
         std::cout << "CephWriter::constructor:rank("  << m_WriterRank 
             << ") m_Name=" << m_Name << std::endl;
     }
-    
 }
 
 CephWriter::~CephWriter() = default;
 
 StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
 {
-    if (m_CurrentStep < 0) m_CurrentStep++; // 0 is the first step
-    if (m_TimestepStart < 0) m_TimestepStart = m_CurrentStep;
+    // 0 is the first step, else only increment in EndStep
+    if (m_CurrentStep < 0) 
+    {
+        m_CurrentStep++; 
+    }
+    
     if (m_DebugMode)
     {
         std::cout << "CephWriter::BeginStep:rank("  << m_WriterRank 
@@ -76,9 +76,10 @@ void CephWriter::PerformPuts()
 
 void CephWriter::EndStep()
 {
-    // CephWriter call to PutSyncCommon() here
+    // advances timesteps and potential call to PutSyncCommon() here
+    m_TimestepEnd = m_CurrentStep;
     int prev = m_CurrentStep;
-    m_CurrentStep++;  // advances timesteps
+    m_CurrentStep++;  
     
     if (m_DebugMode)
     {
@@ -111,7 +112,7 @@ void CephWriter::DoClose(const int transportIndex)
     
     // if there are deferred vars: puts then write and close
 
-    #ifdef USE_CEPH_OBJ_TRANS
+#ifdef USE_CEPH_OBJ_TRANS
     transport->Close();
 #endif /* USE_CEPH_OBJ_TRANS */
 
@@ -162,6 +163,7 @@ void CephWriter::InitParameters()
         it = m_IO.m_Parameters.find("expname");
     if (it != m_IO.m_Parameters.end())
     {
+        m_ExpName = it->second;  // also used in the transport
         Params p = {{it->first, it->second}};
         m_IO.m_TransportsParameters.push_back(p);
     }
@@ -171,6 +173,7 @@ void CephWriter::InitParameters()
         it = m_IO.m_Parameters.find("jobid");
     if (it != m_IO.m_Parameters.end())
     {
+        m_JobId = it->second;  // also used in the transport
         Params p = {{it->first, it->second}};
         m_IO.m_TransportsParameters.push_back(p);
     }
@@ -192,17 +195,17 @@ void CephWriter::InitParameters()
 }
 
  
-void CephWriter::InitTransports(MPI_Comm mpiComm)
+void CephWriter::InitTransports()
 {
     if (m_DebugMode)
     {
         std::cout << "CephWriter::InitTransports:rank("  << m_WriterRank 
                 << ")" << std::endl;
     }
-    
+    //MPI_Comm m_MPIComm;
     transport = std::shared_ptr<transport::CephObjTrans>(
         new transport::CephObjTrans(
-                mpiComm, m_IO.m_TransportsParameters, true));
+                m_MPIComm, m_IO.m_TransportsParameters, true));
     const std::string name = "fname-rank-" + std::to_string(m_WriterRank);
     const Mode mode = Mode::Write;
     transport->Open(name, mode);
@@ -225,24 +228,28 @@ void CephWriter::InitBuffer()
 }
 
 // Generator for unique oids in the experimental space.
-std::string CephWriter::Objector(std::string prefix, std::string varInfo, 
-    int rank, int timestepStart, int timestepEnd) 
+std::string CephWriter::Objector(std::string jobId, std::string expName, int timestep,
+            std::string varName, int varVersion, std::vector<int> dimOffsets, int rank)
 {
-    if (m_DebugMode)
+    std::string offsets = "-";
+    for (int n : dimOffsets) 
     {
-        std::cout << "CephWriter::Objector:rank("  << m_WriterRank 
-                << ")" << std::endl;
+        offsets += (std::to_string(n) + "-");
     }
+    
     // TODO:  Implement per Margaret's prototype.
     std::string oid = (
-            prefix + 
-            varInfo + 
-            std::to_string(rank) + 
-            std::to_string(timestepStart) + 
-            std::to_string(timestepEnd)
+            jobId + "-" + 
+            expName + "-" + 
+            std::to_string(timestep) + "-" + 
+            varName + "-" + 
+            std::to_string(varVersion) + 
+            offsets + "-" + 
+            "rank-" + 
+            std::to_string(rank)
     );
-    
-    return oid;    
+
+    return oid;
 }
 
 

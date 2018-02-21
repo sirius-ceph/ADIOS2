@@ -190,7 +190,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
     {
         DebugPrint("Open:m_RadosCluster.connect()"  , false);
     }
-    ret = m_RadosCluster.connect();
+    if (0) ret = m_RadosCluster.connect();
     if (ret < 0) 
     {
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
@@ -203,7 +203,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
         DebugPrint("Open:m_RadosCluster.ioctx_create(" \
                 "storage_pool, m_IoCtxStorage)" , false);
     }
-    ret = m_RadosCluster.ioctx_create("storage_pool", m_IoCtxStorage);
+    if (0) ret = m_RadosCluster.ioctx_create("storage_pool", m_IoCtxStorage);
     if (ret < 0)
     {
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
@@ -215,7 +215,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
         DebugPrint("Open:CephObjTrans::Open:m_RadosCluster.ioctx_create(" \
                 "archive_pool, m_IoCtxArchive)" , false);
     }
-    ret = m_RadosCluster.ioctx_create("archive_pool", m_IoCtxArchive);
+    if (0) ret = m_RadosCluster.ioctx_create("archive_pool", m_IoCtxArchive);
     if (ret < 0)
    {
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
@@ -246,7 +246,10 @@ void CephObjTrans::Write(std::string oid, librados::bufferlist *bl,
 {
     if (m_DebugMode) 
         DebugPrint("Write:rank(" + std::to_string(m_RankMPI) + ")" \
-                + "oid=" + oid + ". size=" + std::to_string(size) + ". bl.length()=" + std::to_string(bl->length()), false);
+                + "oid=" + oid + ". size=" + std::to_string(size) \
+                + ". bl.length()=" + std::to_string(bl->length()), false);
+    
+    
 
 }
 

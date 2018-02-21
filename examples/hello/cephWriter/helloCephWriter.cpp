@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
     int rank = 0, nproc = 1;
     int wrank = 0, wnproc = 1;
     MPI_Comm mpiWriterComm;
+    std::string expName = "myExperimentName";
 
 #ifdef ADIOS2_HAVE_MPI
     MPI_Init(&argc, &argv);
@@ -70,14 +71,13 @@ int main(int argc, char *argv[])
         //~ cephIO.SetEngine("CephXX");
         
         // Extra IO params, can also pull from local xml config file
-        cephIO.SetParameter("x", "y");
+        cephIO.SetParameter("ExpName", expName);  // overwrites xml config val.
         
         adios2::Variable<float> &varArray = cephIO.DefineVariable<float>(
                 "myArray", {settings.gndx, settings.gndy},
                 {settings.offsx, settings.offsy}, {settings.ndx, settings.ndy},
                 adios2::ConstantDims);
             
-        
         adios2::Params ioParams = cephIO.GetParameters();
         for (std::map<std::string,std::string>::iterator it=ioParams.begin(); it!=ioParams.end(); ++it)
             std::cout << "helloCephWriter:IO Eng Params: " << it->first << " => " << it->second << '\n';
@@ -93,22 +93,21 @@ int main(int argc, char *argv[])
             }
         }
 
-            
         // Define variable and local size
         /** global array : name, { shape (total) }, { start (local) }, {
          * count
          * (local) }, all are constant dimensions */
         adios2::Variable<float> &TemperatureVar = cephIO.DefineVariable<float>(
-            "temps", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
+            "myTempsVar", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
 
         adios2::Variable<int> &PressureVar = cephIO.DefineVariable<int>(
-            "pressure", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
+            "myPressuresVar", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
 
         adios2::Variable<std::string> &LabelVar =
-            cephIO.DefineVariable<std::string>("label");
+            cephIO.DefineVariable<std::string>("myLabelVar");
         
         /** Engine derived class, spawned to start IO operations */
-        adios2::Engine &cephWriter = cephIO.Open("ObjectorOrObjNamesPrefix", adios2::Mode::Write);
+        adios2::Engine &cephWriter = cephIO.Open(expName, adios2::Mode::Write);
 
         for (int step = 0; step < settings.steps; ++step)
         {

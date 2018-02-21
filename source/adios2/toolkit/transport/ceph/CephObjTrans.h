@@ -20,7 +20,7 @@
 #include "adios2/toolkit/transport/Transport.h"
 
 //#ifndef USE_CEPH_OBJ_TRANS
-//#define USE_CEPH_OBJ_TRANS 0
+//#define USE_CEPH_OBJ_TRANS 
 //#endif
 
 namespace adios2
@@ -44,14 +44,12 @@ public:
 
     ~CephObjTrans();
 
-
     void Open(const std::string &name, const Mode openMode) final;
-   // void Open(const std::string &name, const Mode openMode, const std::vector<Params> &parametersVector);
 
     void Write(const char *buffer, size_t size, size_t start = MaxSizeT) final {};
     void Write(std::string oid, librados::bufferlist *bl, size_t size, size_t start);
 
-
+    // TODO: implement read
     void Read(char *buffer, size_t size, size_t start = MaxSizeT) final;
 
     size_t GetSize() final {};
@@ -60,7 +58,6 @@ public:
     /** Does nothing, each write is supposed to flush */
     void Flush() final;
     void Close() final;
-
 
 private:
     int m_Verbosity;
@@ -81,8 +78,6 @@ private:
     librados::Rados m_RadosCluster;
     librados::IoCtx m_IoCtxStorage;
     librados::IoCtx m_IoCtxArchive;
-    //rados.ioctx_create(pool_name, io_ctx);
-    //librados::IoCtx io_ctx;
 
     // ceph objector function vars.
     std::string m_ExpName;

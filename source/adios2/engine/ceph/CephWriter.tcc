@@ -31,43 +31,46 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     variable.SetData(values);    
     
     // CephWriter
-    // 0. if current object size = desried size
+    // 0. if prescribed steps 
     //      0a. write current BL as obj to ceph.
     //      0b. clear BL
     // 1. append vals to BL
     
-
-    const size_t currentStep = CurrentStep();
-    const size_t flushStepsCount =m_FlushStepsCount;
+    const size_t currentStep = CurrentStep();    
+    
+    const int varVersion = 0; // will be used later with EMPRESS
+    std::vector<int> dimOffsets = {0,0,0};
     
 #ifdef USE_CEPH_OBJ_TRANS
-    //if (m_bl->length() + varsize >= m_TargetObjSize) 
-    if (m_CurrentStep % m_FlushStepsCount == 0)  // prescribed by EMPRESS
+    if (currentStep % m_FlushStepsCount == 0)  // prescribed by EMPRESS
     {
         std::string oid = Objector(
+                m_JobId,
                 m_ExpName, 
-                (variable.m_Name + "VarDimInfo"),
-                m_WriterRank, 
-                m_TimestepStart,
-                m_TimestepEnd);
+                currentStep,
+                variable.m_Name,
+                varVersion,
+                dimOffsets,
+                m_WriterRank);
+        if (m_DebugMode)
+        {
+            std::cout << "CephWriter::PutSyncCommon:rank("  << m_WriterRank 
+                    << "): oid=" << oid << std::endl;
+        }
 
         size_t size = m_bl->length();
         size_t offset = 0;  // zero for write full, get offset for object append.
         transport->Write(oid, m_bl, size, offset);
-            
-          // TODO: write current BL as obj to ceph.
-          //       The signature should be like this?
-          //       transport->OWrite(std::string oid, const char *buffer, size_t size, size_t start = MaxSizeT)
-          // TODO: clear BL.
         m_bl->clear();
         m_bl->zero();
+        
+        // counters to keep track of number of steps in an object.
+        m_TimestepStart = currentStep;
+        m_TimestepEnd = -1;
     }
     
     // always add vals to buffer.
     m_bl->append((const char*)values, varsize);
-    
-    m_TimestepStart = -1;
-    m_TimestepEnd = -1;
     
 #endif /* USE_CEPH_OBJ_TRANS */
 
