@@ -41,6 +41,9 @@ public:
     void PerformPuts() final;
     void EndStep() final;
 
+    // TODO: add moveTier public method to writer engine, remove from IO param.
+    // cephWriter.moveTier("VarName", TIER::SLOW)
+
 private:
     
     // Engine vars
@@ -49,7 +52,9 @@ private:
     int m_CurrentStep = -1;     // steps start from 0
 
     // Ceph vars
-    int m_CephTargetObjSize = 8388608; // default object size 8MB 
+    int m_CephTargetObjSize = 8388608; // TODO: remove, unused. 
+
+    // TODO: needs to be a map <varName, &m_bl>
     librados::bufferlist *m_bl = NULL;
     int m_TimestepStart = -1;
     int m_TimestepEnd = -1;

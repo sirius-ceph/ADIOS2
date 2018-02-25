@@ -39,6 +39,15 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     const size_t currentStep = CurrentStep();    
     
     const int varVersion = 0; // will be used later with EMPRESS
+    
+    if (m_DebugMode) 
+    {
+        std::cout << "CephWriter::PutSyncCommon:rank("  << m_WriterRank 
+                << "): variable.m_Name=" << variable.m_Name 
+                << ";  variable.m_Type=" << variable.m_Type << std::endl;
+    }
+    
+    // TODO: get actual Dims per variable.
     std::vector<int> dimOffsets = {0,0,0};
     
 #ifdef USE_CEPH_OBJ_TRANS

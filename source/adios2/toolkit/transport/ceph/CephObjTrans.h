@@ -19,9 +19,9 @@
 #include "adios2/ADIOSConfig.h"
 #include "adios2/toolkit/transport/Transport.h"
 
-//#ifndef USE_CEPH_OBJ_TRANS
-//#define USE_CEPH_OBJ_TRANS 
-//#endif
+#ifndef USE_CEPH_OBJ_TRANS
+#define USE_CEPH_OBJ_TRANS 
+#endif
 
 namespace adios2
 {
@@ -60,17 +60,19 @@ public:
     void Close() final;
 
 private:
-    int m_Verbosity;
+    int m_Verbosity = 0;
 
     // internal utils
     void DebugPrint(std::string msg, bool printAll);
     static std::string ParamsToLower(std::string s);
 
     // ceph config vars
-    CephStorageTier m_CephStorageTier = CephStorageTier::FAST;
     std::string m_CephClusterName;
     std::string m_CephUserName;
     std::string m_CephConfFilePath;
+
+    // TODO: shoul dbe a map of <varName, CephStorageTier>
+    CephStorageTier m_CephStorageTier = CephStorageTier::FAST;
 
     // ceph cluster vars
     bool ObjExists(const std::string &oid);
@@ -81,7 +83,7 @@ private:
     // ceph objector function vars.
     std::string m_ExpName;
     std::string m_JobId;
-    size_t m_TargetObjSize = 8388608;
+    size_t m_TargetObjSize = 8388608;  // TODO: remove, unused
     
 };
 

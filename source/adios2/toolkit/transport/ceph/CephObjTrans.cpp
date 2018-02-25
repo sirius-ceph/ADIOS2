@@ -179,7 +179,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
     }
     ret = m_RadosCluster.conf_read_file(m_CephConfFilePath.c_str());
     if (ret < 0) 
-    {
+    {https://hub.docker.com/r/kiizawa/siriusdev/
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
                 "read the Ceph configuration file! error= "  
                 + std::to_string(ret) + "\n");
@@ -248,6 +248,7 @@ void CephObjTrans::Write(std::string oid, librados::bufferlist *bl,
         DebugPrint("Write:rank(" + std::to_string(m_RankMPI) + ")" \
                 + "oid=" + oid + ". size=" + std::to_string(size) \
                 + ". bl.length()=" + std::to_string(bl->length()), false);
+    
     
     
 
