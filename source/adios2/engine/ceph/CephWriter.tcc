@@ -17,12 +17,81 @@ namespace adios2
 {
 
 template <class T>
+void CephWriter::PrintVarInfo(Variable<T> &variable, const T *values)
+{       
+       //<< this->m_IO.InquireVariableType(variable.m_Name) << ");";
+        std::cout \
+            << "variable.m_Name=" << variable.m_Name 
+            << ";.m_Type=" << variable.m_Type 
+            << ";.m_ShapeID=";
+    
+        std::string msg = "";
+        if(variable.m_ShapeID==ShapeID::GlobalValue) msg = "GlobalValue";
+        if(variable.m_ShapeID==ShapeID::GlobalArray) msg = "GlobalArray";
+        if(variable.m_ShapeID==ShapeID::JoinedArray) msg = "JoinedArray";
+        if(variable.m_ShapeID==ShapeID::LocalArray) msg = "LocalArray";
+        if(variable.m_ShapeID==ShapeID::LocalValue) msg = "LocalValue";
+        std::cout << msg;
+        
+        std::cout \
+            << ";.m_ElementSize=" << variable.m_ElementSize 
+            << "; m_ConstantDims=" << (variable.m_ConstantDims?"true":"false")
+            << "; m_SingleValue=" << (variable.m_SingleValue ?"true":"false")
+            << "; ";
+        
+        std::cout << ".m_Shape=";
+        Dims shape = variable.m_Shape;
+        for (auto d: shape) std::cout << d << ",";
+        std::cout << ";";
+        
+        std::cout << ".m_Start=";
+        Dims start = variable.m_Start;
+        for (auto d: start) std::cout << d << ",";
+        std::cout << ";";
+    
+        std::cout << ".m_Count=";
+        Dims count = variable.m_Count;
+        for (auto d: count) std::cout << d << ",";
+        std::cout << ";.m_IndexStepBlockStarts:keys=" << std::endl;
+        
+        for(auto it:variable.m_IndexStepBlockStarts) 
+        {
+            std::cout << it.first << ",";
+        }
+        std::cout << ";";
+        
+//            GetAvailableStepsStart()
+
+        std::cout << ".m_AvailableStepsStart=" << 
+            variable.m_AvailableStepsStart << ";";
+        
+        std::cout << ".m_AvailableStepsCount=" << 
+            variable.m_AvailableStepsCount << ";";
+        
+        std::cout << ".m_StepsStart=" << 
+            variable.m_StepsStart << ";";
+        
+        std::cout << ".m_StepsCount=" << 
+            variable.m_StepsCount << ";";
+        
+        std::cout << ".TotalSize=" << 
+            variable.TotalSize() << ";";
+        
+        std::cout << ".PayloadSize=" << 
+            variable.PayloadSize() << ";";
+        
+        std::cout << std::endl;
+}
+    
+template <class T>
 void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
 {
     if (m_DebugMode)
     {
         std::cout << "CephWriter::PutSyncCommon:rank("  << m_WriterRank 
-                << ") variable.m_Name=" << variable.m_Name << std::endl;
+            << ")";
+        
+        PrintVarInfo(variable, values);
     }
     
     const size_t varsize = variable.PayloadSize();
@@ -39,13 +108,6 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     const size_t currentStep = CurrentStep();    
     
     const int varVersion = 0; // will be used later with EMPRESS
-    
-    if (m_DebugMode) 
-    {
-        std::cout << "CephWriter::PutSyncCommon:rank("  << m_WriterRank 
-                << "): variable.m_Name=" << variable.m_Name 
-                << ";  variable.m_Type=" << variable.m_Type << std::endl;
-    }
     
     // TODO: get actual Dims per variable.
     std::vector<int> dimOffsets = {0,0,0};

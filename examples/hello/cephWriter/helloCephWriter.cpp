@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     int rank = 0, nproc = 1;
     int wrank = 0, wnproc = 1;
     MPI_Comm mpiWriterComm;
-    std::string expName = "myExperimentName";
+    std::string expName = "XGCexperiment";
 
 #ifdef ADIOS2_HAVE_MPI
     MPI_Init(&argc, &argv);
@@ -98,13 +98,13 @@ int main(int argc, char *argv[])
          * count
          * (local) }, all are constant dimensions */
         adios2::Variable<float> &TemperatureVar = cephIO.DefineVariable<float>(
-            "myTempsVar", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
+            "TempsVar", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
 
         adios2::Variable<int> &PressureVar = cephIO.DefineVariable<int>(
-            "myPressuresVar", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
+            "PressureVar", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
 
         adios2::Variable<std::string> &LabelVar =
-            cephIO.DefineVariable<std::string>("myLabelVar");
+            cephIO.DefineVariable<std::string>("LabelVar");
         
         /** Engine derived class, spawned to start IO operations */
         adios2::Engine &cephWriter = cephIO.Open(expName, adios2::Mode::Write);

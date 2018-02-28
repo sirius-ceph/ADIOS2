@@ -36,12 +36,12 @@ std::string CephWriter::Objector(std::string jobId, std::string expName, int tim
     
     // TODO:  Implement per Margaret's prototype.
     std::string oid = (
-            jobId + "-" + 
-            expName + "-" + 
-            std::to_string(timestep) + "-" + 
-            varName + "-" + 
-            std::to_string(varVersion) + 
-            offsets + "-" + 
+            "JobId:" + jobId + "-" + 
+            "ExpName:" + expName + "-" + 
+            "Step:" + std::to_string(timestep) + "-" + 
+            "Var:" + varName + "-" + 
+            "VarVer:" + std::to_string(varVersion) + 
+            "Dims:" + offsets + "-" + 
             "rank-" + 
             std::to_string(rank)
     );
@@ -103,20 +103,20 @@ void CephWriter::PerformPuts()
 void CephWriter::EndStep()
 {
     // advances timesteps and potential call to PutSyncCommon() here
+    if (m_DebugMode)
+    {
+        std::cout << "CephWriter::EndStep:rank("  << m_WriterRank 
+                << ") current step:" << m_CurrentStep << "; advancing to:" << m_CurrentStep+1 
+                << std::endl;
+    }
     m_TimestepEnd = m_CurrentStep;
     int prev = m_CurrentStep;
     m_CurrentStep++;  
     
-    if (m_DebugMode)
-    {
-        std::cout << "CephWriter::EndStep:rank("  << m_WriterRank 
-                << ") prevStep:" << prev << "; advanced to:" << m_CurrentStep 
-                << std::endl;
-    }
-    
     if (m_NeedPerformPuts)
     {
         PerformPuts();
+        m_NeedPerformPuts = false;
     }
 
 }
@@ -252,5 +252,7 @@ void CephWriter::InitBuffer()
     m_bl->zero();
 #endif /* USE_CEPH_OBJ_TRANS */
 }
+
+
 
 } // end namespace adios2

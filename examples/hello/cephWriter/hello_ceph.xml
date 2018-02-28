@@ -12,7 +12,7 @@
     <io name="writer">
 
         <engine type="Ceph">
-            <parameter key="JobId" value="112"/>
+            <parameter key="JobId" value="JobIdHere"/>
             <parameter key="ExpName" value="XGCabc"/>
             <parameter key="TargetObjSize" value="8388608"/>
             <parameter key="verbose" value="5"/>

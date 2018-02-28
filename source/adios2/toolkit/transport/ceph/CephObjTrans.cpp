@@ -246,12 +246,7 @@ void CephObjTrans::Write(std::string oid, librados::bufferlist *bl,
 {
     if (m_DebugMode) 
         DebugPrint("Write:rank(" + std::to_string(m_RankMPI) + ")" \
-                + "oid=" + oid + ". size=" + std::to_string(size) \
-                + ". bl.length()=" + std::to_string(bl->length()), false);
-    
-    
-    
-
+                + " oid=" + oid + ";  bl.size=" + std::to_string(size), false);
 }
 
 

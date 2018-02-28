@@ -66,6 +66,7 @@ private:
     static std::string Objector(std::string jobId, std::string expName, int timestep,
             std::string varName, int varVersion, std::vector<int> dimOffsets, int rank);
 
+
     // EndStep must call PerformPuts if necessary
     bool m_NeedPerformPuts = false;
 
@@ -93,7 +94,10 @@ private:
 
     template <class T>
     void PutDeferredCommon(Variable<T> &variable, const T *values);
-    
+
+    template <class T>
+    void PrintVarInfo(Variable<T> &variable, const T *values);
+        
     void DoClose(const int transportIndex = -1) final;
 
 };
