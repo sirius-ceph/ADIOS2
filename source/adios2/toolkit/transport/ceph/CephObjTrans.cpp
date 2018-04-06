@@ -43,6 +43,11 @@ CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const std::vector<Params> &params,
 : Transport("CephObjTrans", "cephlibrados", mpiComm, debugMode)
 {
     // fyi: this->m_MPIComm; // (is avail in the transport class)
+    if (debugMode) 
+    {
+        DebugPrint("CephObjTrans::Constructor:rank(" 
+                + std::to_string(m_RankMPI) + ")", true);
+    }
     
     // set the private vars using Transport Params
     for (auto it = params.begin(); it != params.end(); ++it)
@@ -108,10 +113,6 @@ CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const std::vector<Params> &params,
         }
     
     }   
-    
-    if (debugMode) 
-        DebugPrint("Constructor:rank(" + std::to_string(m_RankMPI) + ")", 
-                true);
 }
 
 CephObjTrans::~CephObjTrans() {}
@@ -130,7 +131,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
 
         case (Mode::Append):
             mode = "Append";
-            // TODO: append to an existing object.
+            // TODO: append to an existing object. (UNSUPPORTED) 
             // 1. check if obj exists
             // 2. check obj size.
             // 3. check objector params
@@ -190,7 +191,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
     {
         DebugPrint("Open:m_RadosCluster.connect()"  , false);
     }
-    ret = m_RadosCluster.connect();
+    if(0)ret = m_RadosCluster.connect();
     if (ret < 0) 
     {
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
@@ -203,7 +204,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
         DebugPrint("Open:m_RadosCluster.ioctx_create(" \
                 "storage_pool, m_IoCtxStorage)" , false);
     }
-    ret = m_RadosCluster.ioctx_create("storage_pool", m_IoCtxStorage);
+    if(0)ret = m_RadosCluster.ioctx_create("storage_pool", m_IoCtxStorage);
     if (ret < 0)
     {
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
@@ -215,7 +216,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
         DebugPrint("Open:CephObjTrans::Open:m_RadosCluster.ioctx_create(" \
                 "archive_pool, m_IoCtxArchive)" , false);
     }
-    ret = m_RadosCluster.ioctx_create("archive_pool", m_IoCtxArchive);
+    if(0)ret = m_RadosCluster.ioctx_create("archive_pool", m_IoCtxArchive);
     if (ret < 0)
    {
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
@@ -241,12 +242,39 @@ bool CephObjTrans::ObjExists(const std::string &oid)
 
 }
 
-void CephObjTrans::Write(std::string oid, librados::bufferlist *bl, 
-    size_t size, size_t start)
+//void CephObjTrans::Write(std::string oid, librados::bufferlist* bl, 
+void CephObjTrans::Write(std::string oid, librados::bufferlist& bl, 
+    size_t size, size_t start, size_t elemSize, std::string elemType)
 {
     if (m_DebugMode) 
-        DebugPrint("Write:rank(" + std::to_string(m_RankMPI) + ")" \
-                + " oid=" + oid + ";  bl.size=" + std::to_string(size), false);
+        DebugPrint("CephObjTrans::Write:rank(" + std::to_string(m_RankMPI) + ")" + \
+                " oid='" + oid + "';  size=" + std::to_string(size) + \
+                "; start=" + std::to_string(start) + "; elemSize=" + \
+                std::to_string(elemSize) + "; type=" + elemType + "; bl.length=" + \
+                std::to_string(bl.length()), false);
+    
+    std::cout << "CephObjTrans::Write: type=" << elemType << "; bl addr=" << &bl << std::endl;
+    if(elemType.find("int") != std::string::npos) 
+    {
+        std::cout << "CephObjTrans::Write:type:"<< elemType << ": itr method" << std::endl;
+        librados::bufferlist::iterator it(&bl, start);
+        int pos = start;
+        while (pos+elemSize < size)
+        {
+            std::cout << "pos(" << pos<< ")=";
+            std::cout << std::to_string((int)*it)
+                    << ",";
+            pos += elemSize;
+            it.seek(pos);
+        }
+        std::cout << std::endl;
+        std::cout << "CephObjTrans::Write:type:"<< elemType << ": ptr method" << std::endl;
+        const char* ptr = bl.c_str();
+        for (int i =0; i < bl.length(); i+=elemSize, ptr+=elemSize)
+        {
+            std::cout << ":ptr(" << i << ")=" << *(int*)ptr << std::endl ;
+        }
+    }
 }
 
 
@@ -272,6 +300,8 @@ void CephObjTrans::Flush() {}
 
 void CephObjTrans::Close()
 {
+    // need to write current (last remaining) data buffer.
+    // TODO: here or cephwriter.close(): send all metadata to EMPRESS.
     m_IsOpen = false;
 }
 

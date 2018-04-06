@@ -12,8 +12,8 @@
     <io name="writer">
 
         <engine type="Ceph">
-            <parameter key="JobId" value="JobIdHere"/>
-            <parameter key="ExpName" value="XGCabc"/>
+            <parameter key="JobId" value="jobid"/>
+            <parameter key="ExpName" value="myexp"/>
             <parameter key="TargetObjSize" value="8388608"/>
             <parameter key="verbose" value="5"/>
             <parameter key="MaxBufferSize" value="2Gb"/>

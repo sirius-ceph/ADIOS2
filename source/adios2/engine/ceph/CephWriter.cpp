@@ -23,12 +23,15 @@
 namespace adios2
 {
     
-// Generator for unique oids in the experimental space.
+// Generator for unique oids in the experimental space.  
+// This represents Domain specific object naming, where name is part of 
+// the metadata regarding the contents (i.e., partitioning) of the dataset
+// space. 
 // static
-std::string CephWriter::Objector(std::string jobId, std::string expName, int timestep,
+std::string CephWriter::GetOid(std::string jobId, std::string expName, int timestep,
             std::string varName, int varVersion, std::vector<int> dimOffsets, int rank)
 {
-    std::string offsets = "-";
+    std::string offsets = "";
     for (int n : dimOffsets) 
     {
         offsets += (std::to_string(n) + "-");
@@ -40,7 +43,7 @@ std::string CephWriter::Objector(std::string jobId, std::string expName, int tim
             "ExpName:" + expName + "-" + 
             "Step:" + std::to_string(timestep) + "-" + 
             "Var:" + varName + "-" + 
-            "VarVer:" + std::to_string(varVersion) + 
+            "VarVer:" + std::to_string(varVersion) + "-" + 
             "Dims:" + offsets + "-" + 
             "rank-" + 
             std::to_string(rank)
@@ -73,6 +76,7 @@ StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
     if (m_CurrentStep < 0) 
     {
         m_CurrentStep++; 
+        m_ObjTimestepStart = 0;
     }
     
     if (m_DebugMode)
@@ -109,8 +113,7 @@ void CephWriter::EndStep()
                 << ") current step:" << m_CurrentStep << "; advancing to:" << m_CurrentStep+1 
                 << std::endl;
     }
-    m_TimestepEnd = m_CurrentStep;
-    int prev = m_CurrentStep;
+    m_ObjTimestepEnd = m_CurrentStep;
     m_CurrentStep++;  
     
     if (m_NeedPerformPuts)
@@ -129,17 +132,56 @@ size_t CephWriter::CurrentStep()
 
 void CephWriter::DoClose(const int transportIndex)
 {
-    // forces a write, (DoClose and flush both force a write)
+    // NOTE: this forces a final write, (DoClose and flush both force a write)
+    // TODO: flush all (delayed) metadata to EMPRESS here, that
+    // saves comms during mpi run
     if (m_DebugMode)
     {
         std::cout << "CephWriter::DoClose:rank("  << m_WriterRank 
                 << "). transportIndex=" << transportIndex << std::endl;
     }
     
+    //~ if (m_BP3Serializer.m_DeferredVariables.size() > 0)
+    //~ {
+        //~ PerformPuts();
+            //~ for (const auto &variableName : m_BP3Serializer.m_DeferredVariables)
+            //~ {
+                //~ PutSync(variableName);
+            //~ }
+            //~ m_BP3Serializer.m_DeferredVariables.clear();
+    //~ }
+
+    // TODO:for each var: trasport->Write(oid, size, offset, variable.type, v)
     // if there are deferred vars: puts then write and close
 
+    int varVersion = 0;
+    int elemSize=4;
+    std::vector<int> dimOffsets = {0,0,0};
+    size_t start = 0;  // zero for write full, get offset for object append.
+    size_t size = 0;//TODOm_bl->length();
+    const std::string varname = "PressureVar";
+    std::string oid = GetOid(
+                m_JobId,
+                m_ExpName, 
+                CurrentStep(),
+                varname,
+                varVersion,
+                dimOffsets,
+                m_WriterRank);
+        if (m_DebugMode)
+        {
+            std::cout << "CephWriter::DoClose:rank("  << m_WriterRank 
+                    << "): oid='" << oid << "; varname=" 
+                    << varname << "; m_ObjTimestepStart="
+                    << m_ObjTimestepStart << "; m_ObjTimestepEnd="
+                    << m_ObjTimestepEnd<< std::endl;
+        }
+
+        transport->Write(oid, *m_Buffs.at(varname), size, start, elemSize, "variable.m_Type");
+        
 #ifdef USE_CEPH_OBJ_TRANS
-    transport->Close();
+    //transport->Write();
+    transport->Close();   // essentially a no-op for us.  ? or 
 #endif /* USE_CEPH_OBJ_TRANS */
 
 }
@@ -228,7 +270,6 @@ void CephWriter::InitTransports()
         std::cout << "CephWriter::InitTransports:rank("  << m_WriterRank 
                 << ")" << std::endl;
     }
-    //MPI_Comm m_MPIComm;
     transport = std::shared_ptr<transport::CephObjTrans>(
         new transport::CephObjTrans(
                 m_MPIComm, m_IO.m_TransportsParameters, true));
@@ -242,15 +283,35 @@ void CephWriter::InitBuffer()
     if (m_DebugMode)
     {
         std::cout << "CephWriter::InitBuffer:rank("  << m_WriterRank 
-                << ")" << std::endl;
+                << "): intializing bufferlists for variables:\n";
     }
     
-    //m_bl = new librados::bufferlist(m_CephTargetObjSize*2); 
 #ifdef USE_CEPH_OBJ_TRANS
-    m_bl = new librados::bufferlist(m_CephTargetObjSize);  // ?good size?
-    m_bl->clear();
-    m_bl->zero();
+    
+    // create a bufferlist per variable, zero it.
+    auto vars = this->m_IO.GetAvailableVariables();
+    for(auto& v: vars)
+    {
+        if (m_DebugMode) 
+        {
+            Params p = v.second;
+            std::cout << "\t Varname=" << v.first << ": Vartype=" 
+                    << this->m_IO.InquireVariableType(v.first) << ". empty="
+                    << (p.empty())? "no":"false" << ".  Params map.size()=" << p.size() << std::endl;
+            std::map<std::string, std::string>::iterator it;
+            for (it = p.begin(); it!=p.end(); it++) 
+            {   
+                std::cout << "\t" << it->first << ":" << it->second << std::endl;
+            }
+        }
+
+        m_Buffs[v.first] = new librados::bufferlist();
+        m_Buffs.at(v.first)->zero();
+    }
+    std::cout << std::endl;
+    
 #endif /* USE_CEPH_OBJ_TRANS */
+    
 }
 
 

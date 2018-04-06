@@ -16,14 +16,14 @@
 namespace adios2
 {
 
+    
 template <class T>
 void CephWriter::PrintVarInfo(Variable<T> &variable, const T *values)
 {       
        //<< this->m_IO.InquireVariableType(variable.m_Name) << ");";
-        std::cout \
-            << "variable.m_Name=" << variable.m_Name 
-            << ";.m_Type=" << variable.m_Type 
-            << ";.m_ShapeID=";
+        std::cout << "variable. " 
+            << " m_Name=" << variable.m_Name 
+            << " m_Type=" << variable.m_Type;
     
         std::string msg = "";
         if(variable.m_ShapeID==ShapeID::GlobalValue) msg = "GlobalValue";
@@ -31,74 +31,95 @@ void CephWriter::PrintVarInfo(Variable<T> &variable, const T *values)
         if(variable.m_ShapeID==ShapeID::JoinedArray) msg = "JoinedArray";
         if(variable.m_ShapeID==ShapeID::LocalArray) msg = "LocalArray";
         if(variable.m_ShapeID==ShapeID::LocalValue) msg = "LocalValue";
-        std::cout << msg;
+        std::cout << " m_ShapeID="<< msg;
         
         std::cout \
-            << ";.m_ElementSize=" << variable.m_ElementSize 
-            << "; m_ConstantDims=" << (variable.m_ConstantDims?"true":"false")
-            << "; m_SingleValue=" << (variable.m_SingleValue ?"true":"false")
-            << "; ";
+            << " m_ElementSize=" << variable.m_ElementSize 
+            << " m_ConstantDims=" << (variable.m_ConstantDims?"true":"false")
+            << " m_SingleValue=" << (variable.m_SingleValue ?"true":"false");
         
-        std::cout << ".m_Shape=";
+        std::cout << " m_Shape=";
         Dims shape = variable.m_Shape;
         for (auto d: shape) std::cout << d << ",";
-        std::cout << ";";
         
-        std::cout << ".m_Start=";
+        std::cout << " m_Start=";
         Dims start = variable.m_Start;
         for (auto d: start) std::cout << d << ",";
-        std::cout << ";";
     
-        std::cout << ".m_Count=";
+        std::cout << " m_Count=";
         Dims count = variable.m_Count;
         for (auto d: count) std::cout << d << ",";
-        std::cout << ";.m_IndexStepBlockStarts:keys=" << std::endl;
+        std::cout << " m_IndexStepBlockStarts:keys=" << std::endl;
         
         for(auto it:variable.m_IndexStepBlockStarts) 
         {
             std::cout << it.first << ",";
         }
-        std::cout << ";";
-        
-//            GetAvailableStepsStart()
 
-        std::cout << ".m_AvailableStepsStart=" << 
-            variable.m_AvailableStepsStart << ";";
+        std::cout << " m_AvailableStepsStart=" << 
+            variable.m_AvailableStepsStart;
         
-        std::cout << ".m_AvailableStepsCount=" << 
-            variable.m_AvailableStepsCount << ";";
+        std::cout << " m_AvailableStepsCount=" << 
+            variable.m_AvailableStepsCount;
         
-        std::cout << ".m_StepsStart=" << 
-            variable.m_StepsStart << ";";
+        std::cout << " m_StepsStart=" << 
+            variable.m_StepsStart;
         
-        std::cout << ".m_StepsCount=" << 
-            variable.m_StepsCount << ";";
+        std::cout << " m_StepsCount=" << 
+            variable.m_StepsCount;
         
-        std::cout << ".TotalSize=" << 
-            variable.TotalSize() << ";";
+        std::cout << " TotalSize(num_elements)=" << 
+            variable.TotalSize();
         
-        std::cout << ".PayloadSize=" << 
-            variable.PayloadSize() << ";";
-        
+        std::cout << " PayloadSize=" << 
+            variable.PayloadSize();
+
         std::cout << std::endl;
+        
 }
-    
+
+
+template <class T>
+void CephWriter::PrintVarData(std::string msg, Variable<T> &variable, librados::bufferlist& bl)
+{
+    std::cout << msg << ":type:"<<variable.m_Type << "; bl addr=" << &bl << std::endl;
+    const char *ptr = bl.c_str();
+    for (int i =0; i < bl.length(); i+=variable.m_ElementSize, ptr+=variable.m_ElementSize)
+    {
+        void* tptr;
+        if(variable.m_Type.find("int") != std::string::npos) 
+        {            
+            std::cout << ":ptr(" << i << ")=" << *(int*)ptr << std::endl ;
+        }
+        else if(variable.m_Type.find("float") != std::string::npos) 
+        {            
+            std::cout << ":ptr(" << i << ")=" << *(float*)ptr << std::endl;
+        }
+        else if(variable.m_Type.find("double") != std::string::npos) 
+        {            
+            //tptr = static_cast<double*>(tptr);
+            std::cout << ":ptr(" << i << ")=" << *(double*)ptr << std::endl;
+        }
+        else if(variable.m_Type.find("string") != std::string::npos) 
+        {            
+            std::cout << ":ptr(" << i << ")=" << *(std::string*)ptr << std::endl;
+        }
+    }
+}
+
 template <class T>
 void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
 {
-    if (m_DebugMode)
+    if (0 && m_DebugMode)
     {
-        std::cout << "CephWriter::PutSyncCommon:rank("  << m_WriterRank 
+        std::cout << "\nCephWriter::PutSyncCommon:BEGIN:rank("  << m_WriterRank 
             << ")";
         
         PrintVarInfo(variable, values);
     }
     
-    const size_t varsize = variable.PayloadSize();
-    
-    // set variable
-    variable.SetData(values);    
-    
+
+      
     // CephWriter
     // 0. if prescribed steps 
     //      0a. write current BL as obj to ceph.
@@ -106,16 +127,29 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     // 1. append vals to BL
     
     const size_t currentStep = CurrentStep();    
+    m_ObjTimestepEnd = currentStep;
     
     const int varVersion = 0; // will be used later with EMPRESS
     
     // TODO: get actual Dims per variable.
     std::vector<int> dimOffsets = {0,0,0};
     
+    // TODO: get remaining bytes in buffer for this variable.
+    const int BUF_SZ_AVAIL = adios2::DefaultMaxBufferSize;
+    if (BUF_SZ_AVAIL > variable.PayloadSize()) 
+    {
+        variable.SetData(values); 
+        const char* vdata_ptr = (const char*)variable.GetData();
+        const int vdata_size = variable.PayloadSize();
+        m_Buffs.at(variable.m_Name)->append(vdata_ptr, vdata_size);
+    }
+    
 #ifdef USE_CEPH_OBJ_TRANS
     if (currentStep % m_FlushStepsCount == 0)  // prescribed by EMPRESS
     {
-        std::string oid = Objector(
+
+    
+        std::string oid = GetOid(
                 m_JobId,
                 m_ExpName, 
                 currentStep,
@@ -126,22 +160,25 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
         if (m_DebugMode)
         {
             std::cout << "CephWriter::PutSyncCommon:rank("  << m_WriterRank 
-                    << "): oid=" << oid << std::endl;
+                    << "): FLUSHING oid=" << oid << "; varname=" << variable.m_Name 
+                    << "; m_Buffs.at(variable.m_Name) addr=" << m_Buffs.at(variable.m_Name) << "; ts=" << currentStep 
+                    << "; m_ObjTimestepStart=" << m_ObjTimestepStart 
+                    << "; m_ObjTimestepEnd=" << m_ObjTimestepEnd;
+                    PrintVarData(" values:", variable, *m_Buffs.at(variable.m_Name));
+                    std::cout << std::endl;
         }
 
-        size_t size = m_bl->length();
-        size_t offset = 0;  // zero for write full, get offset for object append.
-        transport->Write(oid, m_bl, size, offset);
-        m_bl->clear();
-        m_bl->zero();
+        size_t size = m_Buffs.at(variable.m_Name)->length();
+        size_t start = 0;  // zero for write full, get offset for object append.
+        //transport->Write(oid, m_Buffs.at(variable.m_Name), size, start, variable.m_ElementSize, variable.m_Type);
+        m_Buffs.at(variable.m_Name)->clear();
+        m_Buffs.at(variable.m_Name)->zero();
         
         // counters to keep track of number of steps in an object.
-        m_TimestepStart = currentStep;
-        m_TimestepEnd = -1;
+        m_ObjTimestepStart = currentStep;
+        m_ObjTimestepEnd = -1;
     }
     
-    // always add vals to buffer.
-    m_bl->append((const char*)values, varsize);
     
 #endif /* USE_CEPH_OBJ_TRANS */
 

@@ -20,10 +20,13 @@
 #include "adios2/ADIOSTypes.h"
 
 // single process write.
-// sirius@jdev:/src/adios2/build$ ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 1 4 4 5 500
+// sirius@jdev:/src/adios2/build$ 
+// ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 1 4 4 5 500
  
-// multiple process write.  (n=2 in /etc/proc, and hence args N*M are 1*2 = 2)
-// sirius@jdev:/src/adios2/build/bin$ mpirun hello_cephWriter ../../source/examples/hello/cephWriter/hello_ceph.xml 1 2 2 2 5 500
+// for MPI: multiple process write.  (n=2 in /etc/proc, and hence args N*M are 1*2 = 2)
+// sirius@jdev:/src/adios2/build$ 
+// mpirun ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 2 2 2 5 500
+
 
 
 int main(int argc, char *argv[])
@@ -31,7 +34,7 @@ int main(int argc, char *argv[])
     int rank = 0, nproc = 1;
     int wrank = 0, wnproc = 1;
     MPI_Comm mpiWriterComm;
-    std::string expName = "XGCexperiment";
+    std::string expName = "myExp";
 
 #ifdef ADIOS2_HAVE_MPI
     MPI_Init(&argc, &argv);
@@ -73,10 +76,10 @@ int main(int argc, char *argv[])
         // Extra IO params, can also pull from local xml config file
         cephIO.SetParameter("ExpName", expName);  // overwrites xml config val.
         
-        adios2::Variable<float> &varArray = cephIO.DefineVariable<float>(
-                "myArray", {settings.gndx, settings.gndy},
-                {settings.offsx, settings.offsy}, {settings.ndx, settings.ndy},
-                adios2::ConstantDims);
+        //~ adios2::Variable<float> &varArray = cephIO.DefineVariable<float>(
+                //~ "myArray", {settings.gndx, settings.gndy},
+                //~ {settings.offsx, settings.offsy}, {settings.ndx, settings.ndy},
+                //~ adios2::ConstantDims);
             
         adios2::Params ioParams = cephIO.GetParameters();
         for (std::map<std::string,std::string>::iterator it=ioParams.begin(); it!=ioParams.end(); ++it)
@@ -121,7 +124,6 @@ int main(int argc, char *argv[])
                 }
             }
             cephWriter.BeginStep(adios2::StepMode::Append);
-            //cephWriter.PutDeferred<float>(varArray, myArray.data());
             cephWriter.PutSync<float>(TemperatureVar, tempVals.data());
             cephWriter.PutSync<int>(PressureVar, pressureVals.data());
             cephWriter.PutSync<std::string>(LabelVar, label);    

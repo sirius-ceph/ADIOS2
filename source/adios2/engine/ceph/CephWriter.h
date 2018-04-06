@@ -51,21 +51,18 @@ private:
     int m_WriterRank = -1;       // my rank in the writers' comm
     int m_CurrentStep = -1;     // steps start from 0
 
-    // Ceph vars
-    int m_CephTargetObjSize = 8388608; // TODO: remove, unused. 
-
-    // TODO: needs to be a map <varName, &m_bl>
-    librados::bufferlist *m_bl = NULL;
-    int m_TimestepStart = -1;
-    int m_TimestepEnd = -1;
+    // Ceph obj vars
+    std::map<std::string, librados::bufferlist*> m_Buffs;
+    int m_ObjTimestepStart = -1;
+    int m_ObjTimestepEnd = -1;
+    std::map<std::string, std::vector<int>> timeStepsBuffered;
 
     // EMPRESS vars
     std::string m_ExpName;
     std::string m_JobId;
     int m_FlushStepsCount = 1;  // default for now
-    static std::string Objector(std::string jobId, std::string expName, int timestep,
+    static std::string GetOid(std::string jobId, std::string expName, int timestep,
             std::string varName, int varVersion, std::vector<int> dimOffsets, int rank);
-
 
     // EndStep must call PerformPuts if necessary
     bool m_NeedPerformPuts = false;
@@ -98,6 +95,9 @@ private:
     template <class T>
     void PrintVarInfo(Variable<T> &variable, const T *values);
         
+    template <class T>
+    void PrintVarData(std::string, Variable<T> &variable, librados::bufferlist& bl);
+    
     void DoClose(const int transportIndex = -1) final;
 
 };
