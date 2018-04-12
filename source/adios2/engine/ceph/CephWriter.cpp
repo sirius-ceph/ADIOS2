@@ -27,7 +27,8 @@ namespace adios2
 // This represents Domain specific object naming, where name is part of 
 // the metadata regarding the contents (i.e., partitioning) of the dataset
 // space. 
-// static
+//
+// static method.
 std::string CephWriter::GetOid(std::string jobId, std::string expName, int timestep,
             std::string varName, int varVersion, std::vector<int> dimOffsets, int rank)
 {
@@ -72,115 +73,96 @@ CephWriter::~CephWriter() = default;
 
 StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
 {
-    // 0 is the first step, else only increment in EndStep
-    if (m_CurrentStep < 0) 
-    {
-        m_CurrentStep++; 
-        m_ObjTimestepStart = 0;
-    }
     
+    m_CurrentStep++; 
+
     if (m_DebugMode)
     {
         std::cout << "CephWriter::BeginStep:rank("  << m_WriterRank 
-                << ") m_CurrentStep++=" << m_CurrentStep << std::endl;
+                << ") m_CurrentStep is now: " << m_CurrentStep << std::endl;
     }
     return StepStatus::OK;
 }
 
+// calls putsync for each var, with a non-empty bl. putsync will decide to actually flush objects 
+// to disk or wait based on other state info.
 void CephWriter::PerformPuts()
 {
-    if (m_DebugMode)
+    for(auto& var: m_IO.GetAvailableVariables())
     {
-        std::cout << "CephWriter::PerformPuts:rank("  << m_WriterRank 
-                << ") " << std::endl;
+        // skip trying to write if there is no data for this var.
+        if(m_Buffs.at(var.first)->length() > 0)
+        {
+            if (m_DebugMode)
+            {        
+                std::cout << "CephWriter::PerformPuts:rank("  << m_WriterRank 
+                        << ")  calling putsync for var=" << var.first << std::endl;
+            }
+        
+            PutSync(var.first);
+        }
+        else 
+        {
+            if (m_DebugMode)
+            {        
+                std::cout << "CephWriter::PerformPuts:rank("  << m_WriterRank 
+                        << ")  nothing remaining to write for var=" << var.first << std::endl;
+            }
+        }
     }
-    m_NeedPerformPuts = false;
-    
-    // BPFileWriter:
-    //~ for (const auto &variableName : m_BP3Serializer.m_DeferredVariables)
-    //~ {
-        //~ PutSync(variableName);
-    //~ }
-
 }
 
 void CephWriter::EndStep()
 {
-    // advances timesteps and potential call to PutSyncCommon() here
     if (m_DebugMode)
     {
         std::cout << "CephWriter::EndStep:rank("  << m_WriterRank 
-                << ") current step:" << m_CurrentStep << "; advancing to:" << m_CurrentStep+1 
-                << std::endl;
+                << ") current step:" << m_CurrentStep << std::endl;
     }
-    m_ObjTimestepEnd = m_CurrentStep;
-    m_CurrentStep++;  
     
-    if (m_NeedPerformPuts)
-    {
-        PerformPuts();
-        m_NeedPerformPuts = false;
-    }
-
+     // we do not consider objects to contain data across timestep boundaries
+    // so force a disk flush (write objs) since this is the end of a timestep.
+    m_ForceFlush = true; 
+    
+    // will call putsync for each var
+    PerformPuts();    
+    
+    // reset state
+    m_ForceFlush = false;
 }
 
 size_t CephWriter::CurrentStep() 
 {
-    // only advanced during EndStep()
     return m_CurrentStep;
 }
+
 
 void CephWriter::DoClose(const int transportIndex)
 {
     // NOTE: this forces a final write, (DoClose and flush both force a write)
     // TODO: flush all (delayed) metadata to EMPRESS here, that
     // saves comms during mpi run
+    // however we should not have any data to flush, if we are not using any
+    // delayed vars.  all data should be written during putsync.
     if (m_DebugMode)
     {
         std::cout << "CephWriter::DoClose:rank("  << m_WriterRank 
                 << "). transportIndex=" << transportIndex << std::endl;
     }
     
-    //~ if (m_BP3Serializer.m_DeferredVariables.size() > 0)
-    //~ {
-        //~ PerformPuts();
-            //~ for (const auto &variableName : m_BP3Serializer.m_DeferredVariables)
-            //~ {
-                //~ PutSync(variableName);
-            //~ }
-            //~ m_BP3Serializer.m_DeferredVariables.clear();
-    //~ }
-
-    // TODO:for each var: trasport->Write(oid, size, offset, variable.type, v)
-    // if there are deferred vars: puts then write and close
-
-    int varVersion = 0;
-    int elemSize=4;
-    std::vector<int> dimOffsets = {0,0,0};
-    size_t start = 0;  // zero for write full, get offset for object append.
-    size_t size = 0;//TODOm_bl->length();
-    const std::string varname = "PressureVar";
-    std::string oid = GetOid(
-                m_JobId,
-                m_ExpName, 
-                CurrentStep(),
-                varname,
-                varVersion,
-                dimOffsets,
-                m_WriterRank);
-        if (m_DebugMode)
-        {
-            std::cout << "CephWriter::DoClose:rank("  << m_WriterRank 
-                    << "): oid='" << oid << "; varname=" 
-                    << varname << "; m_ObjTimestepStart="
-                    << m_ObjTimestepStart << "; m_ObjTimestepEnd="
-                    << m_ObjTimestepEnd<< std::endl;
-        }
-
-        transport->Write(oid, *m_Buffs.at(varname), size, start, elemSize, "variable.m_Type");
+    // we do not consider objects to contain data across timestep boundaries
+    // so force a disk flush (write objs) since this is the end of a timestep.
+    m_ForceFlush = true; 
+    
+    // will call putsync for each var
+    PerformPuts();    
+    
+    // reset state
+    m_ForceFlush = false;
+    
+    // TODO: move to putsync only: transport->Write(oid, *m_Buffs.at(varname), size, start, elemSize, "variable.m_Type");
         
 #ifdef USE_CEPH_OBJ_TRANS
-    //transport->Write();
     transport->Close();   // essentially a no-op for us.  ? or 
 #endif /* USE_CEPH_OBJ_TRANS */
 
@@ -288,16 +270,15 @@ void CephWriter::InitBuffer()
     
 #ifdef USE_CEPH_OBJ_TRANS
     
-    // create a bufferlist per variable, zero it.
-    auto vars = this->m_IO.GetAvailableVariables();
-    for(auto& v: vars)
+    // create an empty bufferlist per variable
+    for(auto& var: m_IO.GetAvailableVariables())
     {
         if (m_DebugMode) 
         {
-            Params p = v.second;
-            std::cout << "\t Varname=" << v.first << ": Vartype=" 
-                    << this->m_IO.InquireVariableType(v.first) << ". empty="
-                    << (p.empty())? "no":"false" << ".  Params map.size()=" << p.size() << std::endl;
+            Params p = var.second;
+            std::cout << "\n\tVarname=" << var.first << ": Vartype=" 
+                    << m_IO.InquireVariableType(var.first) << ". empty="
+                    << ((p.empty())? "no":"false") << ".  Params map.size()=" << p.size() << std::endl;
             std::map<std::string, std::string>::iterator it;
             for (it = p.begin(); it!=p.end(); it++) 
             {   
@@ -305,8 +286,7 @@ void CephWriter::InitBuffer()
             }
         }
 
-        m_Buffs[v.first] = new librados::bufferlist();
-        m_Buffs.at(v.first)->zero();
+        m_Buffs[var.first] = new librados::bufferlist();
     }
     std::cout << std::endl;
     

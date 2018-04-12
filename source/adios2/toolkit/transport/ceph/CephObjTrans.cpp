@@ -157,7 +157,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
     int ret = 0;
     uint64_t flags;
     
-#ifdef USE_CEPH_OBJ_TRANS
+//#ifdef USE_CEPH_OBJ_TRANS
     /* Initialize the cluster handle with cluster name  user name */
     if(m_DebugMode)
     {
@@ -222,7 +222,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
             "set up ioctx! error= "  + std::to_string(ret) + "\n");
     }
-#endif /* USE_CEPH_OBJ_TRANS */
+//#endif /* USE_CEPH_OBJ_TRANS */
     
     m_IsOpen = true;
 }
@@ -242,7 +242,6 @@ bool CephObjTrans::ObjExists(const std::string &oid)
 
 }
 
-//void CephObjTrans::Write(std::string oid, librados::bufferlist* bl, 
 void CephObjTrans::Write(std::string oid, librados::bufferlist& bl, 
     size_t size, size_t start, size_t elemSize, std::string elemType)
 {

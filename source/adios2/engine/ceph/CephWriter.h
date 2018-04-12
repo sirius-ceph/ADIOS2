@@ -51,11 +51,11 @@ private:
     int m_WriterRank = -1;       // my rank in the writers' comm
     int m_CurrentStep = -1;     // steps start from 0
 
-    // Ceph obj vars
-    std::map<std::string, librados::bufferlist*> m_Buffs;
-    int m_ObjTimestepStart = -1;
-    int m_ObjTimestepEnd = -1;
-    std::map<std::string, std::vector<int>> timeStepsBuffered;
+    // Keeps track of outstading (async) write data <varname, bufferlist ptr>
+    std::unordered_map<std::string, librados::bufferlist*> m_Buffs;
+
+    // TODO: we may need this later if deferring writes across timesteps.
+    std::map<std::string, std::vector<int>> timeStepsBuffered; 
 
     // EMPRESS vars
     std::string m_ExpName;
@@ -63,15 +63,17 @@ private:
     int m_FlushStepsCount = 1;  // default for now
     static std::string GetOid(std::string jobId, std::string expName, int timestep,
             std::string varName, int varVersion, std::vector<int> dimOffsets, int rank);
-
-    // EndStep must call PerformPuts if necessary
-    bool m_NeedPerformPuts = false;
+    
+    // only set on DoClose(), to force write during final putsync call.
+    bool m_ForceFlush = false;
 
     void Init() final;
     void InitParameters() final;
     void InitTransports() final;
     void InitBuffer(); 
 
+    // layer that writes to ceph tiers
+    // note: we apparently do not need a transport mgr yet.
     std::shared_ptr<transport::CephObjTrans> transport;
 
 #define declare_type(T)                                                        \

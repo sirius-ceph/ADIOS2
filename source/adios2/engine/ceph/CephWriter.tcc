@@ -82,9 +82,11 @@ void CephWriter::PrintVarInfo(Variable<T> &variable, const T *values)
 template <class T>
 void CephWriter::PrintVarData(std::string msg, Variable<T> &variable, librados::bufferlist& bl)
 {
-    std::cout << msg << ":type:"<<variable.m_Type << "; bl addr=" << &bl << std::endl;
+    // TODO: these are DIMS type.<< ": m_Count=" << variable.m_Count
+    std::cout << msg << ":type:"<< variable.m_Type << ": .m_ElementSize=" << variable.m_ElementSize  << "; bl addr=" << &bl << "; bl.length=" << bl.length() << std::endl;
     const char *ptr = bl.c_str();
-    for (int i =0; i < bl.length(); i+=variable.m_ElementSize, ptr+=variable.m_ElementSize)
+
+    for (int i = 0; i < bl.length(); i+=variable.m_ElementSize, ptr+=variable.m_ElementSize)
     {
         void* tptr;
         if(variable.m_Type.find("int") != std::string::npos) 
@@ -101,8 +103,12 @@ void CephWriter::PrintVarData(std::string msg, Variable<T> &variable, librados::
             std::cout << ":ptr(" << i << ")=" << *(double*)ptr << std::endl;
         }
         else if(variable.m_Type.find("string") != std::string::npos) 
-        {            
+        {           
             std::cout << ":ptr(" << i << ")=" << *(std::string*)ptr << std::endl;
+        }
+        else 
+        {
+            std::cout << "unhandled type <" << variable.m_Type << "> for variable name " << variable.m_Name << std::endl;
         }
     }
 }
@@ -127,18 +133,18 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     // 1. append vals to BL
     
     const size_t currentStep = CurrentStep();    
-    m_ObjTimestepEnd = currentStep;
-    
     const int varVersion = 0; // will be used later with EMPRESS
     
     // TODO: get actual Dims per variable.
     std::vector<int> dimOffsets = {0,0,0};
     
+    // always add the data to the variable.
+    variable.SetData(values); 
+    
     // TODO: get remaining bytes in buffer for this variable.
     const int BUF_SZ_AVAIL = adios2::DefaultMaxBufferSize;
     if (BUF_SZ_AVAIL > variable.PayloadSize()) 
     {
-        variable.SetData(values); 
         const char* vdata_ptr = (const char*)variable.GetData();
         const int vdata_size = variable.PayloadSize();
         m_Buffs.at(variable.m_Name)->append(vdata_ptr, vdata_size);
@@ -147,8 +153,6 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
 #ifdef USE_CEPH_OBJ_TRANS
     if (currentStep % m_FlushStepsCount == 0)  // prescribed by EMPRESS
     {
-
-    
         std::string oid = GetOid(
                 m_JobId,
                 m_ExpName, 
@@ -161,22 +165,17 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
         {
             std::cout << "CephWriter::PutSyncCommon:rank("  << m_WriterRank 
                     << "): FLUSHING oid=" << oid << "; varname=" << variable.m_Name 
-                    << "; m_Buffs.at(variable.m_Name) addr=" << m_Buffs.at(variable.m_Name) << "; ts=" << currentStep 
-                    << "; m_ObjTimestepStart=" << m_ObjTimestepStart 
-                    << "; m_ObjTimestepEnd=" << m_ObjTimestepEnd;
+                    << "; m_Buffs.at(" << variable.m_Name << " ) addr=" 
+                    << m_Buffs.at(variable.m_Name) << "; ts=" << currentStep;
                     PrintVarData(" values:", variable, *m_Buffs.at(variable.m_Name));
                     std::cout << std::endl;
         }
 
         size_t size = m_Buffs.at(variable.m_Name)->length();
-        size_t start = 0;  // zero for write full, get offset for object append.
+        size_t start = 0;  // zero for write full bl, otherwise get offset for last object append.
         //transport->Write(oid, m_Buffs.at(variable.m_Name), size, start, variable.m_ElementSize, variable.m_Type);
         m_Buffs.at(variable.m_Name)->clear();
-        m_Buffs.at(variable.m_Name)->zero();
-        
-        // counters to keep track of number of steps in an object.
-        m_ObjTimestepStart = currentStep;
-        m_ObjTimestepEnd = -1;
+
     }
     
     
@@ -205,7 +204,6 @@ void CephWriter::PutDeferredCommon(Variable<T> &variable, const T *values)
         std::cout << "CephWriter::PutDeferredCommon:rank("  << m_WriterRank 
                 << ") variable.m_Name=" << variable.m_Name << std::endl;
     }
-    m_NeedPerformPuts = true;
 }
 
 } // end namespace adios2

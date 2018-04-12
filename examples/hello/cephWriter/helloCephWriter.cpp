@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
     /** Application data */
     std::vector<float> tempVals = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<int> pressureVals = {0, -1, -2, -3, -4, -5, -6, -7, -8, -9};
-    const std::string label("Hello Variable String from rank " +
+    const std::string label("label is: Hello Variable String from rank " +
             std::to_string(rank)); 
     const std::size_t Nx = tempVals.size();
     std::cout << "helloCephWriter" << std::endl;
