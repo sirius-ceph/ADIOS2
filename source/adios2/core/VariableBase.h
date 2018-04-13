@@ -101,6 +101,7 @@ public:
      * @return number of elements
      */
     size_t TotalSize() const noexcept;
+    size_t TotalElems() const noexcept;
 
     /**
      * Set new shape

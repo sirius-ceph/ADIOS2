@@ -71,6 +71,8 @@ private:
     void InitParameters() final;
     void InitTransports() final;
     void InitBuffer(); 
+        
+    void DoClose(const int transportIndex = -1) final;
 
     // layer that writes to ceph tiers
     // note: we apparently do not need a transport mgr yet.
@@ -100,7 +102,8 @@ private:
     template <class T>
     void PrintVarData(std::string, Variable<T> &variable, librados::bufferlist& bl);
     
-    void DoClose(const int transportIndex = -1) final;
+    template<typename T>
+    void printVal(T val);
 
 };
 

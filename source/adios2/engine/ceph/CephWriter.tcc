@@ -78,39 +78,82 @@ void CephWriter::PrintVarInfo(Variable<T> &variable, const T *values)
         
 }
 
+template<typename T>
+void CephWriter::printVal(T val)
+{
+    std::cout << val << ',';
+}
 
+// Prints out the variable's elements from var data[] and bufferlist.
+// TODO: add these DIMS type.<< ": m_Count=" << variable.m_Count
 template <class T>
 void CephWriter::PrintVarData(std::string msg, Variable<T> &variable, librados::bufferlist& bl)
-{
-    // TODO: these are DIMS type.<< ": m_Count=" << variable.m_Count
-    std::cout << msg << ":type:"<< variable.m_Type << ": .m_ElementSize=" << variable.m_ElementSize  << "; bl addr=" << &bl << "; bl.length=" << bl.length() << std::endl;
-    const char *ptr = bl.c_str();
+{ 
+    std::cout << msg << ":type:"<< variable.m_Type << ": .m_ElementSize=" << variable.m_ElementSize  << "; bl addr=" << &bl;
 
-    for (int i = 0; i < bl.length(); i+=variable.m_ElementSize, ptr+=variable.m_ElementSize)
+    // variable details
+    const int paysize = variable.PayloadSize();
+    const int num_elems = variable.TotalElems();
+    const int elemsize = variable.m_ElementSize;
+    
+    // used to access elems in var data[] or bufferlist
+    const char *ptr;
+    
+    // print out bufferlist elems
+    std::cout << "\nbl.length=" << bl.length() << "\nbl  data=";
+    ptr = bl.c_str();
+    for (int i = 0; i < num_elems; i++, ptr+=elemsize)
     {
         void* tptr;
         if(variable.m_Type.find("int") != std::string::npos) 
         {            
-            std::cout << ":ptr(" << i << ")=" << *(int*)ptr << std::endl ;
+            printVal<int>(*(int*)ptr);            
         }
         else if(variable.m_Type.find("float") != std::string::npos) 
         {            
-            std::cout << ":ptr(" << i << ")=" << *(float*)ptr << std::endl;
+            printVal<float>(*(float*)ptr);
         }
         else if(variable.m_Type.find("double") != std::string::npos) 
         {            
-            //tptr = static_cast<double*>(tptr);
-            std::cout << ":ptr(" << i << ")=" << *(double*)ptr << std::endl;
+            printVal<double>(*(double*)ptr);
         }
         else if(variable.m_Type.find("string") != std::string::npos) 
         {           
-            std::cout << ":ptr(" << i << ")=" << *(std::string*)ptr << std::endl;
+            printVal<std::string>(*(std::string*)ptr);
         }
         else 
         {
             std::cout << "unhandled type <" << variable.m_Type << "> for variable name " << variable.m_Name << std::endl;
         }
     }
+    
+    // print out var data[] elems
+    std::cout << "\nvar payload size=" << paysize  << "; num_elems=" << num_elems << "\nvar data=";
+    ptr = (const char*)variable.GetData();
+    for (int i = 0; i < num_elems; i++, ptr+=elemsize)
+    {  
+        if(variable.m_Type.find("int") != std::string::npos) 
+        {            
+            printVal<int>(*ptr);
+        }
+        else if(variable.m_Type.find("float") != std::string::npos) 
+        {      
+            printVal<float>(*ptr);            
+        }
+        else if(variable.m_Type.find("double") != std::string::npos) 
+        {            
+            printVal<double>(*ptr);
+        }
+        else if(variable.m_Type.find("string") != std::string::npos) 
+        {           
+            printVal<std::string>(*(std::string*)ptr);
+        }
+        else 
+        {
+            std::cout << "unhandled type <" << variable.m_Type << "> for variable name " << variable.m_Name << std::endl;
+        }
+    }
+    std::cout << std::endl;
 }
 
 template <class T>
