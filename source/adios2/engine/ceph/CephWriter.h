@@ -97,10 +97,10 @@ private:
     void PutDeferredCommon(Variable<T> &variable, const T *values);
 
     template <class T>
-    void PrintVarInfo(Variable<T> &variable, const T *values);
+    void PrintVarInfo(Variable<T> &variable); //, const T *values);
         
     template <class T>
-    void PrintVarData(std::string, Variable<T> &variable, librados::bufferlist& bl);
+    void PrintVarData(Variable<T> &variable); //, librados::bufferlist& bl);
     
     template<typename T>
     void printVal(T val);

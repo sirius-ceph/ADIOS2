@@ -88,6 +88,7 @@ StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
 // to disk or wait based on other state info.
 void CephWriter::PerformPuts()
 {
+    // for each variable, if not empty then putsync.
     for(auto& var: m_IO.GetAvailableVariables())
     {
         // skip trying to write if there is no data for this var.
@@ -95,8 +96,9 @@ void CephWriter::PerformPuts()
         {
             if (m_DebugMode)
             {        
-                std::cout << "CephWriter::PerformPuts:rank("  << m_WriterRank 
-                        << ")  calling putsync for var=" << var.first << std::endl;
+                std::cout << "CephWriter::PerformPuts:rank("  << m_WriterRank  
+                        << ") CALLING putsync for var=" 
+                        << var.first << std::endl;
             }
         
             PutSync(var.first);
@@ -105,8 +107,9 @@ void CephWriter::PerformPuts()
         {
             if (m_DebugMode)
             {        
-                std::cout << "CephWriter::PerformPuts:rank("  << m_WriterRank 
-                        << ")  nothing remaining to write for var=" << var.first << std::endl;
+               std::cout << "CephWriter::PerformPuts:rank("  << m_WriterRank  
+                    << ") SKIPPING putsync, nothing remaining to write for var=" 
+                    << var.first << std::endl;
             }
         }
     }
@@ -120,8 +123,8 @@ void CephWriter::EndStep()
                 << ") current step:" << m_CurrentStep << std::endl;
     }
     
-     // we do not consider objects to contain data across timestep boundaries
-    // so force a disk flush (write objs) since this is the end of a timestep.
+    // currently we do not consider objects to contain data across timestep 
+    // boundaries so force a write (objs) since this is the end of a timestep.
     m_ForceFlush = true; 
     
     // will call putsync for each var
@@ -262,29 +265,27 @@ void CephWriter::InitTransports()
   
 void CephWriter::InitBuffer()
 {
-    if (m_DebugMode)
-    {
-        std::cout << "CephWriter::InitBuffer:rank("  << m_WriterRank 
-                << "): intializing bufferlists for variables:\n";
-    }
-    
+
 #ifdef USE_CEPH_OBJ_TRANS
     
     // create an empty bufferlist per variable
     for(auto& var: m_IO.GetAvailableVariables())
     {
-        if (m_DebugMode) 
+        if(m_DebugMode) 
         {
-            Params p = var.second;
-            std::cout << "\n\tVarname=" << var.first << ": Vartype=" 
-                    << m_IO.InquireVariableType(var.first) << ". empty="
-                    << ((p.empty())? "no":"false") << ".  Params map.size()=" << p.size() << std::endl;
+            Params p = var.second;  // (p.empty()
+            std::cout  << "CephWriter::InitBuffer:rank("  << m_WriterRank  << ")" 
+                    << "\n\tVarname=" << var.first 
+                    << "\n\tVartype=" << m_IO.InquireVariableType(var.first) 
+                    << "\n\tParams map.size()=" << p.size() 
+                    << "\n\tParams map.elems()=";
             std::map<std::string, std::string>::iterator it;
             for (it = p.begin(); it!=p.end(); it++) 
             {   
-                std::cout << "\t" << it->first << ":" << it->second << std::endl;
+                std::cout << "\n\t\t" << it->first << ":" << it->second;
             }
         }
+        std::cout << std::endl;
 
         m_Buffs[var.first] = new librados::bufferlist();
     }
