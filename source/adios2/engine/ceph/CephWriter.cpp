@@ -91,8 +91,9 @@ void CephWriter::PerformPuts()
     // for each variable, if not empty then putsync.
     for(auto& var: m_IO.GetAvailableVariables())
     {
+if(var.first =="LabelVar") {std::cout << "skipping var=" << var.first <<std::endl; continue;}
         // skip trying to write if there is no data for this var.
-        if(m_Buffs.at(var.first)->length() > 0)
+        if(m_Buffs.at(var.first)->length() >= 0)
         {
             if (m_DebugMode)
             {        
@@ -163,7 +164,8 @@ void CephWriter::DoClose(const int transportIndex)
     // reset state
     m_ForceFlush = false;
     
-    // TODO: move to putsync only: transport->Write(oid, *m_Buffs.at(varname), size, start, elemSize, "variable.m_Type");
+    // TODO: move to putsync only: 
+    // transport->Write(oid, *m_Buffs.at(varname), size, start, elemSize, "variable.m_Type");
         
 #ifdef USE_CEPH_OBJ_TRANS
     transport->Close();   // essentially a no-op for us.  ? or 

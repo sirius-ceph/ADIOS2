@@ -101,7 +101,7 @@ public:
      * @return number of elements
      */
     size_t TotalSize() const noexcept;
-    size_t TotalElems() const noexcept;
+    size_t TotalElems() const noexcept;  //jpl temporary debug only
 
     /**
      * Set new shape

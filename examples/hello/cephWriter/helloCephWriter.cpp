@@ -19,14 +19,16 @@
 #include <adios2.h>
 #include "adios2/ADIOSTypes.h"
 
-// single process write.
-// sirius@jdev:/src/adios2/build$ 
-// ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 1 4 4 5 500
- 
-// for MPI: multiple process write.  (n=2 in /etc/proc, and hence args N*M are 1*2 = 2)
-// sirius@jdev:/src/adios2/build$ 
-// mpirun ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 2 2 2 5 500
-
+/*
+*
+* single process write.
+* sirius@jdev:/src/adios2/build$ 
+* ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 1 4 4 5 500
+*
+* for MPI: multiple process write.  (n=2 in /etc/proc, and hence args N*M are 1*2 = 2)
+* sirius@jdev:/src/adios2/build$ 
+* mpirun ./bin/hello_cephWriter ../source/examples/hello/cephWriter/hello_ceph.xml 1 2 2 2 5 500
+*/
 
 
 int main(int argc, char *argv[])
@@ -126,11 +128,16 @@ int main(int argc, char *argv[])
             }
             cephWriter.BeginStep(adios2::StepMode::Append);
             cephWriter.PutSync<float>(TemperatureVar, tempVals.data());
-            if (step == settings.steps -1) 
+            if (step %2 == 0)   // jpl temp debug only.
+            {
                 cephWriter.PutSync<int>(PressureVar, pressureVals2.data());
+                cephWriter.PutSync<std::string>(LabelVar, (label + "...this is step=" + std::to_string(step)));   
+            }
             else 
+            {
                 cephWriter.PutSync<int>(PressureVar, pressureVals.data());
-            cephWriter.PutSync<std::string>(LabelVar, label);    
+                cephWriter.PutSync<std::string>(LabelVar, label);    
+            }
             cephWriter.EndStep();
             std::this_thread::sleep_for(
                 std::chrono::milliseconds(settings.sleeptime));

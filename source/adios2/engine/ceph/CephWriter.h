@@ -13,6 +13,7 @@
 
 #include "adios2/ADIOSConfig.h"
 #include "adios2/core/Engine.h"
+#include "adios2/helper/adiosFunctions.h"   // DimsToCSV,
 #include "adios2/toolkit/transport/ceph/CephObjTrans.h"
 
 #include <rados/librados.hpp>
@@ -43,6 +44,7 @@ public:
 
     // TODO: add moveTier public method to writer engine, remove from IO param.
     // cephWriter.moveTier("VarName", TIER::SLOW)
+    // actually this should probabaly be SetTier(var), 
 
 private:
     
@@ -71,7 +73,6 @@ private:
     void InitParameters() final;
     void InitTransports() final;
     void InitBuffer(); 
-        
     void DoClose(const int transportIndex = -1) final;
 
     // layer that writes to ceph tiers
@@ -102,11 +103,19 @@ private:
     template <class T>
     void PrintVarData(Variable<T> &variable); //, librados::bufferlist& bl);
     
+    template <class T>
+    void CheckMinMax(Variable<T> &variable); 
+    
     template<typename T>
-    void printVal(T val);
-
+    void testMin(Variable<T> &variable, T val);
+    
+    template < typename T, typename U > 
+    void SetMinMax(Variable<T> &variable, const U& val );
+    void SetMinMax(Variable<std::complex<float>> &variable, const std::complex<float>& val ) { }
+    void SetMinMax(Variable<std::complex<double>> &variable, const std::complex<double>& val ) { }
+    void SetMinMax(Variable<std::complex<long double>> &variable, const std::complex<long double>& val ) { }
+    
 };
-
 } // end namespace adios2
 
 #endif /* ADIOS2_ENGINE_CEPH_CEPHWRITER_H_ */
