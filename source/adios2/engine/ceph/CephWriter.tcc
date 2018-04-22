@@ -23,12 +23,12 @@ template <class T>
 void CephWriter::PrintVarInfo(Variable<T> &variable) 
 {       
     //<< this->m_IO.InquireVariableType(variable.m_Name) << ");";
-    std::cout << "variable. " 
-        << "\n\t.m_Name=" << variable.m_Name 
-        << "\n\t.m_Type=" << variable.m_Type
-        << "\n\t.m_Min=" << variable.m_Min
-        << "\n\t.m_Max=" << variable.m_Max
-        << "\n\t.m_Value=" << variable.m_Value;
+    std::cout << "(" << variable.m_Name << ")"
+        << "\n\tvar.m_Name=" << variable.m_Name 
+        << "\n\tvar.m_Type=" << variable.m_Type
+        << "\n\tvar.m_Min=" << variable.m_Min
+        << "\n\tvar.m_Max=" << variable.m_Max
+        << "\n\tvar.m_Value=" << variable.m_Value;
 
     std::string msg = "";
     if(variable.m_ShapeID==ShapeID::GlobalValue) msg = "GlobalValue";
@@ -36,47 +36,47 @@ void CephWriter::PrintVarInfo(Variable<T> &variable)
     if(variable.m_ShapeID==ShapeID::JoinedArray) msg = "JoinedArray";
     if(variable.m_ShapeID==ShapeID::LocalArray) msg = "LocalArray";
     if(variable.m_ShapeID==ShapeID::LocalValue) msg = "LocalValue";
-    std::cout << "\n\t.m_ShapeID="<< msg;
+    std::cout << "\n\tvar.m_ShapeID="<< msg;
     
     std::cout \
-        << "\n\t.m_ElementSize=" << variable.m_ElementSize 
-        << "\n\t.m_ConstantDims=" << (variable.m_ConstantDims?"true":"false")
-        << "\n\t.m_SingleValue=" << (variable.m_SingleValue ?"true":"false");
+        << "\n\tvar.m_ElementSize=" << variable.m_ElementSize 
+        << "\n\tvar.m_ConstantDims=" << (variable.m_ConstantDims?"true":"false")
+        << "\n\tvar.m_SingleValue=" << (variable.m_SingleValue ?"true":"false");
     
-    std::cout << "\n\t.m_Shape=";
+    std::cout << "\n\tvar.m_Shape=";
     Dims shape = variable.m_Shape;
     for (auto d: shape) std::cout << d << ",";
     
-    std::cout << "\n\t.m_Start=";
+    std::cout << "\n\tvar.m_Start=";
     Dims start = variable.m_Start;
     for (auto d: start) std::cout << d << ",";
 
-    std::cout << "\n\t.m_Count=";
+    std::cout << "\n\tvar.m_Count=";
     Dims count = variable.m_Count;
     for (auto d: count) std::cout << d << ",";
-    std::cout << "\n\t.m_IndexStepBlockStarts:keys=";
+    std::cout << "\n\tvar.m_IndexStepBlockStarts:keys=";
     
     for(auto it:variable.m_IndexStepBlockStarts) 
     {
         std::cout << it.first << ",";
     }
 
-    std::cout << "\n\t.m_AvailableStepsStart=" << 
+    std::cout << "\n\tvar.m_AvailableStepsStart=" << 
         variable.m_AvailableStepsStart;
     
-    std::cout << "\n\t.m_AvailableStepsCount=" << 
+    std::cout << "\n\tvar.m_AvailableStepsCount=" << 
         variable.m_AvailableStepsCount;
     
-    std::cout << "\n\t.m_StepsStart=" << 
+    std::cout << "\n\tvar.m_StepsStart=" << 
         variable.m_StepsStart;
     
-    std::cout << "\n\t.m_StepsCount=" << 
+    std::cout << "\n\tvar.m_StepsCount=" << 
         variable.m_StepsCount;
     
-    std::cout << "\n\t.TotalSize(num_elements)=" << 
+    std::cout << "\n\tvar.TotalSize(num_elements)=" << 
         variable.TotalSize();
     
-    std::cout << "\n\t.PayloadSize=" << 
+    std::cout << "\n\tvar.PayloadSize=" << 
         variable.PayloadSize();
     
     PrintVarData(variable);
@@ -115,10 +115,11 @@ template <class T>
 void CephWriter::PrintVarData(Variable<T> &variable)
 { 
     // print out elems in var's data[]
-    T *p = variable.GetData();
+    const T *p = variable.GetData();
     
     if(p != nullptr)
     {
+        std::cout << "\n\tvar.GetData=";
         for (int i = 0; i < variable.TotalElems() ; i++, p++)
         {
             std::cout << *p << ",";
@@ -126,21 +127,19 @@ void CephWriter::PrintVarData(Variable<T> &variable)
     }
     else 
     {
-        std::cout << " is empty";
+        std::cout << "\n\tvar.data is empty";
     }
     
     // print out elems in bufferlist
-    librados::bufferlist& bl = *m_Buffs.at(variable.m_Name);
-    std::cout 
-            << "\n\tbl addr=" << &bl 
-            << "\n\tbl.length=" << bl.length() 
-            << "\n\tbl  data=";
+    librados::bufferlist *bl = m_Buffs.at(variable.m_Name);
+    std::cout << "\n\tbl.addr=" << &(*bl) << "\n\tbl.length=" << bl->length();
     
     // should be safe since this bl is always directly associated with this var's< T>.
-    void *ptr = bl.c_str();
-    p = reinterpret_cast<T*>(ptr); 
+    void *ptr = bl->c_str();
+    p = static_cast<T*>(ptr); 
     if(p !=nullptr)    
     {
+        std::cout << "\n\tbl.data=";
         for (int i = 0; i < variable.TotalElems(); i++, p++)
         {
             std::cout << *p << ",";
@@ -148,7 +147,7 @@ void CephWriter::PrintVarData(Variable<T> &variable)
     }
     else 
     {
-        std::cout << "is empty";
+        std::cout << "\n\tbl.data is empty";
     }
     std::cout << std::endl;
 }
