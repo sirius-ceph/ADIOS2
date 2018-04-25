@@ -91,9 +91,8 @@ void CephWriter::PerformPuts()
     // for each variable, if not empty then putsync.
     for(auto& var: m_IO.GetAvailableVariables())
     {
-if(var.first =="LabelVar") {std::cout << "skipping var=" << var.first <<std::endl; continue;}
-        // skip trying to write if there is no data for this var.
-        if(m_Buffs.at(var.first)->length() >= 0)
+        // serves as a check for deferred var data as well.
+        if(m_Buffs.at(var.first)->length() > 0)
         {
             if (m_DebugMode)
             {        
@@ -101,7 +100,6 @@ if(var.first =="LabelVar") {std::cout << "skipping var=" << var.first <<std::end
                         << ") CALLING putsync for var=" 
                         << var.first << std::endl;
             }
-        
             PutSync(var.first);
         }
         else 
@@ -114,6 +112,7 @@ if(var.first =="LabelVar") {std::cout << "skipping var=" << var.first <<std::end
             }
         }
     }
+    m_NeedPerformPuts = false;
 }
 
 void CephWriter::EndStep()
@@ -129,7 +128,8 @@ void CephWriter::EndStep()
     m_ForceFlush = true; 
     
     // will call putsync for each var
-    PerformPuts();    
+    if(m_NeedPerformPuts)
+        PerformPuts();    
     
     // reset state
     m_ForceFlush = false;
@@ -156,13 +156,9 @@ void CephWriter::DoClose(const int transportIndex)
     
     // we do not consider objects to contain data across timestep boundaries
     // so force a disk flush (write objs) since this is the end of a timestep.
-    m_ForceFlush = true; 
-    
     // will call putsync for each var
-    PerformPuts();    
-    
-    // reset state
-    m_ForceFlush = false;
+    if(m_NeedPerformPuts)
+        PerformPuts();     
     
     // TODO: move to putsync only: 
     // transport->Write(oid, *m_Buffs.at(varname), size, start, elemSize, "variable.m_Type");

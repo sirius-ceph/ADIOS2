@@ -48,7 +48,8 @@ public:
 
     /** Variable -> sizeof(T),
      *  VariableCompound -> from constructor sizeof(struct) */
-    const size_t m_ElementSize;
+    // jpl for strings, need to reset it. const size_t m_ElementSize;
+    size_t m_ElementSize;
 
     ShapeID m_ShapeID;                 ///< see shape types in ADIOSTypes.h
     bool m_SingleValue = false;        ///< true: single value, false: array
@@ -101,7 +102,6 @@ public:
      * @return number of elements
      */
     size_t TotalSize() const noexcept;
-    size_t TotalElems() const noexcept;  //jpl temporary debug only
 
     /**
      * Set new shape

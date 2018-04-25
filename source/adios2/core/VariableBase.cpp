@@ -41,11 +41,6 @@ size_t VariableBase::TotalSize() const noexcept
     return GetTotalSize(m_Count);
 }
 
-size_t VariableBase::TotalElems() const noexcept
-{
-    return GetTotalSize(m_Count);
-}
-
 void VariableBase::SetShape(const adios2::Dims &shape)
 {
     if (m_DebugMode)

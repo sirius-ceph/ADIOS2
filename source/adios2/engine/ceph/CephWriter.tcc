@@ -80,34 +80,79 @@ void CephWriter::PrintVarInfo(Variable<T> &variable)
         variable.PayloadSize();
     
     PrintVarData(variable);
+    PrintBlData(variable);
     std::cout << std::endl;
 }
 
-template < typename T, typename U > 
+
+void CephWriter::SetMinMax(Variable<std::string> &variable, const std::string& val) 
+{
+    if(variable.m_Value.size() == 0)
+    {
+        variable.m_Value.append(val.data());
+        variable.m_Min.append(val.data());
+        variable.m_Max.append(val.data());
+        
+        // we manually reset this just to avoid ptr inconsitent state later with 
+        // string types due to payload size (element size) issues.
+        variable.SetData(&variable.m_Value);    
+        variable.m_ElementSize = variable.m_Value.size();
+    }
+}
+
+template < class T, class U > 
 void CephWriter::SetMinMax(Variable<T> &variable, const U& val ) 
 { 
-    if(val<variable.m_Min) variable.m_Min= val; 
-    if(val>variable.m_Max) variable.m_Max= val;
+    if(variable.m_SingleValue) 
+    {
+        variable.m_Value = variable.m_Min = variable.m_Max = val;    // SEGFAULT PROBLEM WITH STRING VARs 
+    }
+    else 
+    {
+        if(val<variable.m_Min) variable.m_Min= val; 
+        if(val>variable.m_Max) variable.m_Max= val;
+    }
 }
 
 template <class T>
 void CephWriter::CheckMinMax(Variable<T> &variable)
-{ 
-    // variable details
-    const int paysize = variable.PayloadSize();
-    const int num_elems = variable.TotalElems();
-    const int elemsize = variable.m_ElementSize;
-    
-    T* ptr = variable.GetData();
-    if(ptr != nullptr)
-    {            
-        for (int i = 0; i < num_elems; i++, ptr++)
-        { 
-            SetMinMax(variable, *ptr);
+{
+    const T* p = variable.GetData();
+    if(p)
+    {
+        if(variable.m_SingleValue)
+        {
+            SetMinMax(variable, *p);
+        }
+        else 
+        {
+            for (int i = 0; i < variable.TotalSize(); i++, p++)
+            { 
+                SetMinMax(variable, *p);
+            }
         }
     }
     std::cout << std::endl;
 }
+
+
+template <class T>
+void CephWriter::SetBufferlist(Variable<T> &variable)
+{
+    // our template functions are overloaded, so no chance of getting here 
+    // with a complex type variable.
+    const char* p = (const char*)variable.GetData();  
+    if (p) 
+        m_Buffs.at(variable.m_Name)->append(p, variable.TotalSize() * variable.m_ElementSize);
+}
+
+void CephWriter::SetBufferlist(Variable<std::string> &variable)
+{
+    const char* p = (const char*)variable.GetData();  
+    if (p) 
+        m_Buffs.at(variable.m_Name)->append(variable.m_Value.c_str(), variable.m_Value.size());
+}
+
 
 // Prints out the variable's elements from var data[] and bufferlist.
 // TODO: add these DIMS type.<< ": m_Count=" << variable.m_Count
@@ -115,34 +160,45 @@ template <class T>
 void CephWriter::PrintVarData(Variable<T> &variable)
 { 
     // print out elems in var's data[]
-    const T *p = variable.GetData();
-    
-    if(p != nullptr)
+    const T* p = variable.GetData();    
+    if(p)
     {
         std::cout << "\n\tvar.GetData=";
-        for (int i = 0; i < variable.TotalElems() ; i++, p++)
-        {
+        for (int i = 0; i < variable.TotalSize() ; i++, p++)
             std::cout << *p << ",";
-        }
     }
     else 
     {
         std::cout << "\n\tvar.data is empty";
     }
-    
+}
+
+
+template <class T>
+void CephWriter::PrintBlData(Variable<T> &variable)
+{ 
     // print out elems in bufferlist
     librados::bufferlist *bl = m_Buffs.at(variable.m_Name);
     std::cout << "\n\tbl.addr=" << &(*bl) << "\n\tbl.length=" << bl->length();
     
     // should be safe since this bl is always directly associated with this var's< T>.
-    void *ptr = bl->c_str();
-    p = static_cast<T*>(ptr); 
-    if(p !=nullptr)    
+    if(bl->length())
     {
-        std::cout << "\n\tbl.data=";
-        for (int i = 0; i < variable.TotalElems(); i++, p++)
+        if(variable.m_SingleValue) 
         {
-            std::cout << *p << ",";
+            std::string const s(bl->c_str());
+            std::cout << "\n\tbl.data=" << s.data();
+        }
+        else
+        {
+            const void* vptr =  static_cast<const void*>(bl->c_str());
+            const T* p = static_cast<const T*>(vptr); 
+            if(p)
+            {
+                std::cout << "\n\tbl.data=";
+                for (int i = 0; i < bl->length() ; i+=variable.m_ElementSize, p++)  
+                    std::cout << *p << ",";
+            }
         }
     }
     else 
@@ -163,44 +219,33 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
         PrintVarInfo(variable);
     }
     
-    // CephWriter
-    // 0. if prescribed steps 
-    //      0a. write current BL as obj to ceph.
-    //      0b. clear BL
-    // 1. append vals to BL
-    
     const size_t currentStep = CurrentStep();    
     const int varVersion = 0; // will be used later with EMPRESS
     
     // TODO: get actual Dims per variable.
     std::vector<int> dimOffsets = {0,0,0};
     
-    // always add the data to the variable.
+    // always add the data to the variable, can this ever be null?
     variable.SetData(values); 
-    
-    // TODO: get remaining bytes in buffer for this variable.
-    const int BUF_SZ_AVAIL = adios2::DefaultMaxBufferSize;
-    if (BUF_SZ_AVAIL > variable.PayloadSize()) 
-    {
-        const char* vdata_ptr = (const char*)variable.GetData();
-        const int vdata_size = variable.PayloadSize();
-        if (vdata_ptr) 
-        {
-            m_Buffs.at(variable.m_Name)->append(vdata_ptr, vdata_size);
-        }
-    }
     
     // need to keep track of ongoing min max for this var, per obj, and global.
     CheckMinMax(variable); 
-      
-    // variable details
-    const int paysize = variable.PayloadSize();
-    const int num_elems = variable.TotalElems();
-    const int elemsize = variable.m_ElementSize;
+    
+    // TODO: get remaining bytes in buffer for this variable.
+    const int BUF_SZ_AVAIL = adios2::DefaultMaxBufferSize;
+    if (BUF_SZ_AVAIL > (variable.PayloadSize() +  m_Buffs.at(variable.m_Name)->length()))
+    {
+        SetBufferlist(variable); 
+        
+        // now we clear the var data so its not re-added to bufferlist
+        // this is appropriate since variable is not the place for data storage
+        variable.SetData(nullptr);
+    }
     
 #ifdef USE_CEPH_OBJ_TRANS
     if (currentStep % m_FlushStepsCount == 0)  // prescribed by EMPRESS
     {
+        //FlushObjData();
         std::string oid = GetOid(
                 m_JobId,
                 m_ExpName, 
@@ -209,21 +254,19 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
                 varVersion,
                 dimOffsets,
                 m_WriterRank);
+    
         if (m_DebugMode)
         {
-            std::cout << "CephWriter::PutSyncCommon:MIDDLE:rank("  << m_WriterRank 
-                    << "): oid=" << oid << "; varname=" << variable.m_Name 
-                    << "; m_Buffs.at(" << variable.m_Name << " ) addr=" 
-                    << m_Buffs.at(variable.m_Name) << "; ts=" << currentStep << ";  ";
-            
-                    //PrintVarData(" ", variable, *m_Buffs.at(variable.m_Name));
-                    PrintVarInfo(variable); 
-                    std::cout << std::endl;
+            std::cout << "oid=" << oid << std::endl;
+            std::cout << "\nCephWriter::PutSyncCommon:MIDDLE:rank("  << m_WriterRank 
+                    << ") ts=: " << currentStep << ";  ";
+            PrintVarInfo(variable); 
+            std::cout << std::endl;
         }
 
         size_t size = m_Buffs.at(variable.m_Name)->length();
         size_t start = 0;  // zero for write full bl, otherwise get offset for last object append.
-        //transport->Write(oid, m_Buffs.at(variable.m_Name), size, start, variable.m_ElementSize, variable.m_Type);
+        transport->Write(oid, *(m_Buffs.at(variable.m_Name)), size, start, variable.m_ElementSize, variable.m_Type);
         m_Buffs.at(variable.m_Name)->clear();
 
     }
@@ -247,7 +290,34 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
 template <class T>
 void CephWriter::PutDeferredCommon(Variable<T> &variable, const T *values)
 {
-    variable.SetData(values);
+    if(values != nullptr)     
+        variable.SetData(values); 
+    
+    // need to keep track of ongoing min max for this var, per obj, and global.
+    CheckMinMax(variable); 
+    
+    // always add var data to our bl.
+    const int BUF_SZ_AVAIL = adios2::DefaultMaxBufferSize;
+    if (BUF_SZ_AVAIL > variable.PayloadSize()) 
+    {
+        // TODO: dangerous cast, change to template specialization
+        const char* vdata_ptr = reinterpret_cast<const char*>(variable.GetData());
+        const int vdata_size = variable.PayloadSize();
+        if (vdata_ptr) 
+        {
+            if(variable.m_SingleValue) 
+            {
+                // TODO: this is a workaround for string payloadsize fixed at 32
+                m_Buffs.at(variable.m_Name)->append(variable.m_Value);
+            }
+            else 
+            {
+                m_Buffs.at(variable.m_Name)->append(vdata_ptr, vdata_size);
+            }
+        }
+    }
+
+    m_NeedPerformPuts = true;
 
     if (m_DebugMode)
     {
