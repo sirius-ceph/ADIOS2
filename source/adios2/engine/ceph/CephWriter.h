@@ -103,15 +103,15 @@ private:
         
     template <class T>
     void PrintVarData(Variable<T> &variable); 
-    void PrintVarData(Variable<std::complex<float>> &variable) { }
-    void PrintVarData(Variable<std::complex<double>> &variable) { }
-    void PrintVarData(Variable<std::complex<long double>> &variable) { }
+    void PrintVarData(Variable<std::complex<float>> &variable) { /*not supported*/ }
+    void PrintVarData(Variable<std::complex<double>> &variable) { /*not supported*/ }
+    void PrintVarData(Variable<std::complex<long double>> &variable) { /*not supported*/ }
     
     template <class T>
-    void PrintBlData(Variable<T> &variable); //, librados::bufferlist& bl);
-    void PrintBlData(Variable<std::complex<float>> &variable) { }
-    void PrintBlData(Variable<std::complex<double>> &variable) { }
-    void PrintBlData(Variable<std::complex<long double>> &variable) { }
+    void PrintBlData(Variable<T> &variable); // print librados::bufferlist 
+    void PrintBlData(Variable<std::complex<float>> &variable) { /*not supported*/ }
+    void PrintBlData(Variable<std::complex<double>> &variable) { /*not supported*/ }
+    void PrintBlData(Variable<std::complex<long double>> &variable) { /*not supported*/ }
     
     template <class T>
     void CheckMinMax(Variable<T> &variable); 
@@ -119,16 +119,16 @@ private:
     template <class T>
     void SetBufferlist(Variable<T> &variable);
     void SetBufferlist(Variable<std::string> &variable);
-    void SetBufferlist(Variable<std::complex<float>> &variable) { }
-    void SetBufferlist(Variable<std::complex<double>> &variable) { }
-    void SetBufferlist(Variable<std::complex<long double>> &variable) { }
+    void SetBufferlist(Variable<std::complex<float>> &variable) { /*not supported*/ }
+    void SetBufferlist(Variable<std::complex<double>> &variable) { /*not supported*/ }
+    void SetBufferlist(Variable<std::complex<long double>> &variable) { /*not supported*/ }
     
     template < class T, class U > 
     void SetMinMax(Variable<T> &variable, const U& val );
     void SetMinMax(Variable<std::string> &variable, const std::string& val );
-    void SetMinMax(Variable<std::complex<float>> &variable, const std::complex<float>& val ) { }
-    void SetMinMax(Variable<std::complex<double>> &variable, const std::complex<double>& val ) { }
-    void SetMinMax(Variable<std::complex<long double>> &variable, const std::complex<long double>& val ) { }
+    void SetMinMax(Variable<std::complex<float>> &variable, const std::complex<float>& val ) { /*not supported*/ }
+    void SetMinMax(Variable<std::complex<double>> &variable, const std::complex<double>& val ) { /*not supported*/ }
+    void SetMinMax(Variable<std::complex<long double>> &variable, const std::complex<long double>& val ) { /*not supported*/ }
     
 };
 } // end namespace adios2

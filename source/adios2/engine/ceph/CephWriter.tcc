@@ -95,7 +95,9 @@ void CephWriter::SetMinMax(Variable<std::string> &variable, const std::string& v
         
         // we manually reset this just to avoid ptr inconsitent state later with 
         // string types due to payload size (element size) issues.
-        variable.SetData(&variable.m_Value);    
+        variable.SetData(&variable.m_Value);   
+
+        // reset elemsize to correct strlen, due to above str ptr size issue
         variable.m_ElementSize = variable.m_Value.size();
     }
 }
@@ -105,7 +107,7 @@ void CephWriter::SetMinMax(Variable<T> &variable, const U& val )
 { 
     if(variable.m_SingleValue) 
     {
-        variable.m_Value = variable.m_Min = variable.m_Max = val;    // SEGFAULT PROBLEM WITH STRING VARs 
+        variable.m_Value = variable.m_Min = variable.m_Max = val;
     }
     else 
     {
