@@ -117,11 +117,11 @@ private:
     void CheckMinMax(Variable<T> &variable); 
     
     template <class T>
-    void SetBufferlist(Variable<T> &variable);
-    void SetBufferlist(Variable<std::string> &variable);
-    void SetBufferlist(Variable<std::complex<float>> &variable) { /*not supported*/ }
-    void SetBufferlist(Variable<std::complex<double>> &variable) { /*not supported*/ }
-    void SetBufferlist(Variable<std::complex<long double>> &variable) { /*not supported*/ }
+    void AppendBufferlist(Variable<T> &variable);
+    void AppendBufferlist(Variable<std::string> &variable);
+    void AppendBufferlist(Variable<std::complex<float>> &variable) { /*not supported*/ }
+    void AppendBufferlist(Variable<std::complex<double>> &variable) { /*not supported*/ }
+    void AppendBufferlist(Variable<std::complex<long double>> &variable) { /*not supported*/ }
     
     template < class T, class U > 
     void SetMinMax(Variable<T> &variable, const U& val );
@@ -130,6 +130,8 @@ private:
     void SetMinMax(Variable<std::complex<double>> &variable, const std::complex<double>& val ) { /*not supported*/ }
     void SetMinMax(Variable<std::complex<long double>> &variable, const std::complex<long double>& val ) { /*not supported*/ }
     
+    
+    void TestBL();  // jpl testing only.
 };
 } // end namespace adios2
 

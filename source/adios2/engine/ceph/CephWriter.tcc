@@ -139,7 +139,7 @@ void CephWriter::CheckMinMax(Variable<T> &variable)
 
 
 template <class T>
-void CephWriter::SetBufferlist(Variable<T> &variable)
+void CephWriter::AppendBufferlist(Variable<T> &variable)
 {
     // our template functions are overloaded, so no chance of getting here 
     // with a complex type variable.
@@ -148,8 +148,9 @@ void CephWriter::SetBufferlist(Variable<T> &variable)
         m_Buffs.at(variable.m_Name)->append(p, variable.TotalSize() * variable.m_ElementSize);
 }
 
-void CephWriter::SetBufferlist(Variable<std::string> &variable)
+void CephWriter::AppendBufferlist(Variable<std::string> &variable)
 {
+    // TODO: these should use bufferlist ::encode and decode
     const char* p = (const char*)variable.GetData();  
     if (p) 
         m_Buffs.at(variable.m_Name)->append(variable.m_Value.c_str(), variable.m_Value.size());
@@ -182,45 +183,35 @@ void CephWriter::PrintBlData(Variable<T> &variable)
     // print out elems in bufferlist
     librados::bufferlist *bl = m_Buffs.at(variable.m_Name);
     std::cout << "\n\tbl.addr=" << &(*bl) << "\n\tbl.length=" << bl->length();
-    
-    // should be safe since this bl is always directly associated with this var's< T>.
-    if(bl->length())
+
+    librados::bufferlist::iterator it = bl->begin();    
+    if(it !=bl->end()) 
     {
-        if(variable.m_SingleValue) 
+        // since adios2 string type is always sized as str ptr.
+        if(std::is_same<T, std::string>::value)
         {
-            std::string const s(bl->c_str());
-            std::cout << "\n\tbl.data=" << s.data();
-        }
-        else
+            std::string const s(bl->c_str(), bl->length());
+            std::cout << "string val=" << s;  
+        } 
+        else 
         {
-            const void* vptr =  static_cast<const void*>(bl->c_str());
-            const T* p = static_cast<const T*>(vptr); 
-            if(p)
+            std::cout << "vals=";
+            size_t pos = 0;
+            while (it != bl->end()) 
             {
-                std::cout << "\n\tbl.data=";
-                for (int i = 0; i < bl->length() ; i+=variable.m_ElementSize, p++)  
-                    std::cout << *p << ",";
+                const char* p;
+                pos += it.get_ptr_and_advance(sizeof(T), &p);
+                const T* val = reinterpret_cast<const T*>(p);
+                std::cout << *val << " (pos=" << pos << "), ";
             }
         }
+         std::cout << std::endl;
     }
-    else 
-    {
-        std::cout << "\n\tbl.data is empty";
-    }
-    std::cout << std::endl;
 }
 
 template <class T>
 void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
-{
-    if (m_DebugMode)
-    {
-        std::cout << "\nCephWriter::PutSyncCommon:BEGIN:rank("  << m_WriterRank 
-            << ") PrintVarInfo: ";
-        
-        PrintVarInfo(variable);
-    }
-    
+{   
     const size_t currentStep = CurrentStep();    
     const int varVersion = 0; // will be used later with EMPRESS
     
@@ -237,7 +228,7 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     const int BUF_SZ_AVAIL = adios2::DefaultMaxBufferSize;
     if (BUF_SZ_AVAIL > (variable.PayloadSize() +  m_Buffs.at(variable.m_Name)->length()))
     {
-        SetBufferlist(variable); 
+        AppendBufferlist(variable); 
         
         // now we clear the var data so its not re-added to bufferlist
         // this is appropriate since variable is not the place for data storage
@@ -260,7 +251,7 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
         if (m_DebugMode)
         {
             std::cout << "oid=" << oid << std::endl;
-            std::cout << "\nCephWriter::PutSyncCommon:MIDDLE:rank("  << m_WriterRank 
+            std::cout << "\nCephWriter::PutSyncCommon:rank("  << m_WriterRank 
                     << ") ts=: " << currentStep << ";  ";
             PrintVarInfo(variable); 
             std::cout << std::endl;
