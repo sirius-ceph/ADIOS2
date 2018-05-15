@@ -79,8 +79,11 @@ void CephWriter::PrintVarInfo(Variable<T> &variable)
     std::cout << "\n\tvar.PayloadSize=" << 
         variable.PayloadSize();
     
-    PrintVarData(variable);
-    PrintBlData(variable);
+    TypeInfo<T> ti;
+    PrintVariableVals(variable.TotalSize(), variable.GetData());
+    PrintBufferlistVals(ti, *(m_Buffs.at(variable.m_Name))); 
+    //BLTesting(ti, *(m_Buffs.at(variable.m_Name))); 
+    
     std::cout << std::endl;
 }
 
@@ -160,14 +163,14 @@ void CephWriter::AppendBufferlist(Variable<std::string> &variable)
 // Prints out the variable's elements from var data[] and bufferlist.
 // TODO: add these DIMS type.<< ": m_Count=" << variable.m_Count
 template <class T>
-void CephWriter::PrintVarData(Variable<T> &variable)
+void CephWriter::PrintVariableVals(size_t num_elems, const T* p)
 { 
-    // print out elems in var's data[]
-    const T* p = variable.GetData();    
+    // print out elems in var's data[]  
+    // this is of course unsafe.
     if(p)
     {
         std::cout << "\n\tvar.GetData=";
-        for (int i = 0; i < variable.TotalSize() ; i++, p++)
+        for (int i = 0; i < num_elems ; i++, p++)
             std::cout << *p << ",";
     }
     else 
@@ -176,38 +179,99 @@ void CephWriter::PrintVarData(Variable<T> &variable)
     }
 }
 
-
 template <class T>
-void CephWriter::PrintBlData(Variable<T> &variable)
+void CephWriter::PrintBufferlistVals(const TypeInfo<T>, librados::bufferlist  &bl)
 { 
     // print out elems in bufferlist
-    librados::bufferlist *bl = m_Buffs.at(variable.m_Name);
-    std::cout << "\n\tbl.addr=" << &(*bl) << "\n\tbl.length=" << bl->length();
+    std::cout << "\n\tbl.addr=" << &bl << "\n\tbl.length=" << bl.length();
 
-    librados::bufferlist::iterator it = bl->begin();    
-    if(it !=bl->end()) 
+    // use a bufferlist iterator and we treat string type as separate case.
+    // since adios2 string type is always value sized as str ptr,
+    // so we cannot iterate over the bufferlist.
+    if(std::is_same<T, std::string>::value)
     {
-        // since adios2 string type is always sized as str ptr.
-        if(std::is_same<T, std::string>::value)
+        std::string const s(bl.c_str(), bl.length());
+        std::cout << "\n\tdata=" << s;  
+    } 
+    else 
+    {
+        std::cout << "\n\tdata=";
+        librados::bufferlist::iterator it = bl.begin();   
+        size_t pos = 0;
+        
+        // this is also not safe, and should catch end of buffer error.
+        while (it != bl.end()) 
         {
-            std::string const s(bl->c_str(), bl->length());
-            std::cout << "string val=" << s;  
-        } 
-        else 
-        {
-            std::cout << "vals=";
-            size_t pos = 0;
-            while (it != bl->end()) 
-            {
-                const char* p;
-                pos += it.get_ptr_and_advance(sizeof(T), &p);
-                const T* val = reinterpret_cast<const T*>(p);
-                std::cout << *val << " (pos=" << pos << "), ";
-            }
-        }
-         std::cout << std::endl;
+            const char* p;
+            pos += it.get_ptr_and_advance(sizeof(T), &p);
+            const T* val = reinterpret_cast<const T*>(p);
+            std::cout << *val << ", ";
+        }   
     }
+    std::cout << std::endl;
 }
+
+template <class T> 
+void CephWriter::BLTesting(const TypeInfo<T> ti, librados::bufferlist& bl)
+{
+    std::cout << "START BL Copy Testing\n";   
+    int total_elems = bl.length()/sizeof(T);
+    int len = bl.length()/2;
+    librados::bufferlist::iterator itr(&bl);
+    
+    // copy via bl.copy
+    librados::bufferlist out;
+    bl.copy(0, len, out);
+    std::cout << "\n\tcopy half via bl.copy:";
+    PrintBufferlistVals(ti, out);
+
+    // copy shallow via itr and bufferptr.   
+    librados::bufferlist copy;   
+    itr.seek(0);  //  itr.get_off()
+    ceph::bufferptr bufptr = itr.get_current_ptr(); //   ceph::bufferptr bufptr(len);   
+    itr.copy_shallow(len, bufptr);  
+    copy.append(bufptr);
+    std::cout << "\n\tcopy first half via itr.copy_shallow(len, bufptr):";  
+    PrintBufferlistVals(ti, copy);  
+    
+    // copy shallow via itr and bufferptr. 
+    librados::bufferlist copy2;
+    ceph::bufferptr ptr = itr.get_current_ptr();
+    std::cout << " itr.get_off()=" <<  itr.get_off() << std::endl;
+    itr.copy_shallow(len, ptr);
+    copy2.append(ptr);
+    std::cout << "\n\tcopy second half via itr.copy_shallow(len, bufptr): copy2";  
+    PrintBufferlistVals(ti, copy2); 
+    
+    // copy all
+    librados::bufferlist copy3;
+    itr = bl.begin();
+    itr.copy_all(copy3);
+    std::cout << "\n\tcopy_all to copy3";  
+    PrintBufferlistVals(ti, copy3); 
+    
+    // copy both halves via bufferptrs
+{
+    librados::bufferlist copy;
+    ceph::bufferptr ptr1(len), ptr2(len);
+    librados::bufferlist::iterator itr(&bl);
+    itr.seek(0);
+    itr.copy_shallow(len, ptr1);
+    int offset = itr.get_off();
+    itr.seek(0);
+    itr.seek(offset);
+    itr.seek(0);
+    itr.advance(offset);
+    itr.copy_shallow(len,ptr2);
+    copy.append(ptr1);
+    copy.append(ptr2);
+    std::cout << "\n\tcopy both halves via 2 bufferptrs";   
+    PrintBufferlistVals(ti, copy); 
+}
+    
+    std::cout << "END BL Copy Testing!!!\n";    
+}
+
 
 template <class T>
 void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)

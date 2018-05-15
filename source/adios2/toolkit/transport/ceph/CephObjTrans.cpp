@@ -245,35 +245,21 @@ bool CephObjTrans::ObjExists(const std::string &oid)
 void CephObjTrans::Write(std::string oid, librados::bufferlist& bl, 
     size_t size, size_t start, size_t elemSize, std::string elemType)
 {
+    
     if (m_DebugMode) 
+    {
+        // get the bl address as a string for debug only.
+        const void * addr = static_cast<const void*>(&bl);
+        std::stringstream ss;
+        ss << addr;  
+        std::string bl_addr = ss.str(); 
         DebugPrint("CephObjTrans::Write:rank(" + std::to_string(m_RankMPI) + ")" + \
                 " oid='" + oid + "';  size=" + std::to_string(size) + \
                 "; start=" + std::to_string(start) + "; elemSize=" + \
                 std::to_string(elemSize) + "; type=" + elemType + "; bl.length=" + \
-                std::to_string(bl.length()), false);
-    
-    std::cout << "CephObjTrans::Write: type=" << elemType << "; bl addr=" << &bl << std::endl;
-    if(elemType.find("int") != std::string::npos) 
-    {
-        std::cout << "CephObjTrans::Write:type:"<< elemType << ": itr method" << std::endl;
-        librados::bufferlist::iterator it(&bl, start);
-        int pos = start;
-        while (pos+elemSize < size)
-        {
-            std::cout << "pos(" << pos<< ")=";
-            std::cout << std::to_string((int)*it)
-                    << ",";
-            pos += elemSize;
-            it.seek(pos);
-        }
-        std::cout << std::endl;
-        std::cout << "CephObjTrans::Write:type:"<< elemType << ": ptr method" << std::endl;
-        const char* ptr = bl.c_str();
-        for (int i =0; i < bl.length(); i+=elemSize, ptr+=elemSize)
-        {
-            std::cout << ":ptr(" << i << ")=" << *(int*)ptr << std::endl ;
-        }
+                std::to_string(bl.length()) +  "; bl addr=" + bl_addr, false);
     }
+    
 }
 
 

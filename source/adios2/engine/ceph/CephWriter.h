@@ -102,17 +102,11 @@ private:
     void PrintVarInfo(Variable<T> &variable); 
         
     template <class T>
-    void PrintVarData(Variable<T> &variable); 
-    void PrintVarData(Variable<std::complex<float>> &variable) { /*not supported*/ }
-    void PrintVarData(Variable<std::complex<double>> &variable) { /*not supported*/ }
-    void PrintVarData(Variable<std::complex<long double>> &variable) { /*not supported*/ }
-    
-    template <class T>
-    void PrintBlData(Variable<T> &variable); // print librados::bufferlist 
-    void PrintBlData(Variable<std::complex<float>> &variable) { /*not supported*/ }
-    void PrintBlData(Variable<std::complex<double>> &variable) { /*not supported*/ }
-    void PrintBlData(Variable<std::complex<long double>> &variable) { /*not supported*/ }
-    
+    void PrintVariableVals(size_t num_elems, const T* p); 
+    void PrintVariableVals(size_t num_elems, const std::complex<float>* p) { /*not supported*/ }
+    void PrintVariableVals(size_t num_elems, const std::complex<double>* p) { /*not supported*/ }
+    void PrintVariableVals(size_t num_elems,const std::complex<long double>* p) { /*not supported*/ }
+     
     template <class T>
     void CheckMinMax(Variable<T> &variable); 
     
@@ -132,7 +126,21 @@ private:
     
     
     void TestBL();  // jpl testing only.
-};
+    
+    
+    template <class T>
+    void BLTesting(const TypeInfo<T> ti, librados::bufferlist  &bl); // print librados::bufferlist 
+    void BLTesting(const TypeInfo<std::complex<float>> ti, librados::bufferlist  &bl) { /*not supported*/ }
+    void BLTesting(const TypeInfo<std::complex<double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
+    void BLTesting(const TypeInfo<std::complex<long double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
+    
+    template <class T>
+    void PrintBufferlistVals(const TypeInfo<T> ti, librados::bufferlist  &bl);
+    void PrintBufferlistVals(const TypeInfo<std::complex<float>> ti, librados::bufferlist  &bl) { /*not supported*/ }
+    void PrintBufferlistVals(const TypeInfo<std::complex<double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
+    void PrintBufferlistVals(const TypeInfo<std::complex<long double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
+
+    };
 } // end namespace adios2
 
 #endif /* ADIOS2_ENGINE_CEPH_CEPHWRITER_H_ */
