@@ -14,6 +14,7 @@
 #include <mpi.h>
 #include <stdexcept> //std::invalid_argument std::exception
 #include <vector>
+#include <random>
 
 #include "HelloCephArgs.h"
 #include <adios2.h>
@@ -33,6 +34,8 @@
 
 int main(int argc, char *argv[])
 {
+    std::cout << "helloCephWriter" << std::endl;
+    
     int rank = 0, nproc = 1;
     int wrank = 0, wnproc = 1;
     MPI_Comm mpiWriterComm;
@@ -50,22 +53,18 @@ int main(int argc, char *argv[])
     MPI_Comm_size(mpiWriterComm, &nproc);
 #endif
 
-    /** Application data */
-    std::vector<float> tempVals = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    std::vector<int> pressureVals = {0, -1, -2, -3, -4, -5, -6, -7, -8, -9};
-    std::vector<int> pressureVals2 = {-10, -11, -12, -13, -14, -15, -16, -17, -18, -19};
-    const std::string label("Hello Variable String from rank " +
-            std::to_string(rank)); 
-    const std::size_t Nx = tempVals.size();
-    std::cout << "helloCephWriter" << std::endl;
+    /** Some static Application data */
+    //std::vector<int> pressures = {0, -1, -2, -3, -4, -5, -6, -7, -8, -9};
+    std::vector<float> temperatures;
+    std::vector<int> pressures;
+    std::string msg("Hello from rank " + std::to_string(rank)); 
 
     try
     {
         // user input.
         HelloCephArgs settings(true, argc, argv, rank, nproc);
-        
-        // dataset
-        std::vector<float> myArray(settings.ndx * settings.ndy);
+        const std::size_t Nx = settings.ndx * settings.ndy;
+        std::cout << "\n\n\n\n (ndx,ndy)=(" << settings.ndx << "," << settings.ndy << ")\n\n\n"; 
                 
         /** ADIOS class factory of IO class objects, DebugON is recommended */
         adios2::ADIOS adios(settings.configfile, mpiWriterComm, adios2::DebugON);
@@ -103,41 +102,47 @@ int main(int argc, char *argv[])
         /** global array : name, { shape (total) }, { start (local) }, {
          * count
          * (local) }, all are constant dimensions */
-        adios2::Variable<float> &TemperatureVar = cephIO.DefineVariable<float>(
-            "TempsVar", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
+        adios2::Variable<float> &Temperature = cephIO.DefineVariable<float>(
+            "Temperature", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
 
-        adios2::Variable<int> &PressureVar = cephIO.DefineVariable<int>(
-            "PressureVar", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
+        adios2::Variable<int> &Pressure = cephIO.DefineVariable<int>(
+            "Pressure", {nproc * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
 
-        adios2::Variable<std::string> &LabelVar =
-            cephIO.DefineVariable<std::string>("LabelVar");
+        adios2::Variable<std::string> &Label =
+            cephIO.DefineVariable<std::string>("Label");
         
         /** Engine derived class, spawned to start IO operations */
         adios2::Engine &cephWriter = cephIO.Open(expName, adios2::Mode::Write);
+            
+        std::random_device rd;
 
+        int idx = 0;
         for (int step = 0; step < settings.steps; ++step)
         {
-            int idx = 0;
+            std::cout << "\nhelloCephWriter:step=" << step << std::endl;
+            
+            // generates some fake application data.
+            temperatures.clear();
+            pressures.clear();
+
             for (int j = 0; j < settings.ndy; ++j)
             {
                 for (int i = 0; i < settings.ndx; ++i)
                 {
-                    myArray[idx] = rank + (step / 100.0f);
-                    ++idx;
+                    // generate 2 decimal rands for our float array
+                    float f = static_cast<float>(rd()) / rd.max();
+                    f = (static_cast<int>(f * 100)) / 100.0;
+                    temperatures.push_back(rank + f);
+                    pressures.push_back(-1 * idx++) ;
                 }
             }
+            
             cephWriter.BeginStep(adios2::StepMode::Append);
-            cephWriter.PutSync<float>(TemperatureVar, tempVals.data());
-            if (step %2 == 0)   // jpl temp debug only.
-            {
-                cephWriter.PutSync<int>(PressureVar, pressureVals2.data());
-                cephWriter.PutSync<std::string>(LabelVar, (label + "...this is step=" + std::to_string(step)));   
-            }
-            else 
-            {
-                cephWriter.PutSync<int>(PressureVar, pressureVals.data());
-                cephWriter.PutSync<std::string>(LabelVar, label);    
-            }
+            cephWriter.PutSync<float>(Temperature, temperatures.data());
+            cephWriter.PutSync<int>(Pressure, pressures.data());
+            std::string s(msg + "...this is step=" + std::to_string(step));   
+            cephWriter.PutSync<std::string>(Label, s);    
+        
             cephWriter.EndStep();
             std::this_thread::sleep_for(
                 std::chrono::milliseconds(settings.sleeptime));

@@ -47,7 +47,7 @@ public:
     void Open(const std::string &name, const Mode openMode) final;
 
     void Write(const char *buffer, size_t size, size_t start = MaxSizeT) final {};
-    void Write(std::string oid, librados::bufferlist& bl, size_t size, size_t start, size_t elemSize, std::string type);
+    void Write(std::string oid, librados::bufferlist& bl);
 
     // TODO: implement read
     void Read(char *buffer, size_t size, size_t start = MaxSizeT) final;

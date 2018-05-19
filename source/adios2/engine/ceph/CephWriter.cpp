@@ -81,6 +81,9 @@ StepStatus CephWriter::BeginStep(StepMode mode, const float timeoutSeconds)
         std::cout << "CephWriter::BeginStep:rank("  << m_WriterRank 
                 << ") m_CurrentStep is now: " << m_CurrentStep << std::endl;
     }
+    
+    InitBuffer(m_CurrentStep);
+    
     return StepStatus::OK;
 }
 
@@ -92,7 +95,8 @@ void CephWriter::PerformPuts()
     for(auto& var: m_IO.GetAvailableVariables())
     {
         // serves as a check for deferred var data as well.
-        if(m_Buffs.at(var.first)->length() > 0)
+        librados::bufferlist bl = *(m_BuffsIdx[m_CurrentStep]->at(var.first));
+        if(bl.length() > 0)
         {
             if (m_DebugMode)
             {        
@@ -154,19 +158,27 @@ void CephWriter::DoClose(const int transportIndex)
                 << "). transportIndex=" << transportIndex << std::endl;
     }
     
-    // we do not consider objects to contain data across timestep boundaries
-    // so force a disk flush (write objs) since this is the end of a timestep.
     // will call putsync for each var
     if(m_NeedPerformPuts)
         PerformPuts();     
     
-    // TODO: move to putsync only: 
-    // transport->Write(oid, *m_Buffs.at(varname), size, start, elemSize, "variable.m_Type");
-        
 #ifdef USE_CEPH_OBJ_TRANS
-    transport->Close();   // essentially a no-op for us.  ? or 
+    // TODO:  add empressmd update and check for rank0 and all others done.
+    transport->Close();   
 #endif /* USE_CEPH_OBJ_TRANS */
-
+    
+    /* TODO: 
+    * need to printout /check all var bls for remaining data 
+    * across all timesteps and wait for asych Ceph Tiered Writes to finish
+    * with valid return code or retry.
+    * Though we need to get the vartype T here in order to print.
+    for (int step=0; step<=m_CurrentStep; step++)
+    {
+        std::cout << "\nstep=" << step << std::endl;
+        librados::bufferlist bl = *(m_BuffsIdx[step]->at(variable.m_Name));
+        PrintBufferlistVals(ti, bl); 
+    }
+    */
 }
 
 
@@ -175,7 +187,6 @@ void CephWriter::Init()
 {
     InitParameters();
     InitTransports();
-    InitBuffer();
 }
 
 #define declare_type(T)                                                        \
@@ -261,17 +272,20 @@ void CephWriter::InitTransports()
     transport->Open(name, mode);
 }
   
-void CephWriter::InitBuffer()
+void CephWriter::InitBuffer(int timestep)
 {
 
+    // creates a new map of <varname, bl> for each timestep
 #ifdef USE_CEPH_OBJ_TRANS
+    
+    CWBufferlistMap* bmap = new CWBufferlistMap();
     
     // create an empty bufferlist per variable
     for(auto& var: m_IO.GetAvailableVariables())
     {
         if(m_DebugMode) 
         {
-            Params p = var.second;  // (p.empty()
+            Params p = var.second;
             std::cout  << "CephWriter::InitBuffer:rank("  << m_WriterRank  << ")" 
                     << "\n\tVarname=" << var.first 
                     << "\n\tVartype=" << m_IO.InquireVariableType(var.first) 
@@ -284,15 +298,13 @@ void CephWriter::InitBuffer()
             }
         }
         std::cout << std::endl;
-
-        m_Buffs[var.first] = new librados::bufferlist();
+        bmap->operator[](var.first) =  new librados::bufferlist();
     }
     std::cout << std::endl;
+    m_BuffsIdx[timestep] = bmap;
     
 #endif /* USE_CEPH_OBJ_TRANS */
-    
 }
-
 
 
 } // end namespace adios2

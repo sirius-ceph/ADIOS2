@@ -22,7 +22,6 @@ namespace adios2
 template <class T>
 void CephWriter::PrintVarInfo(Variable<T> &variable) 
 {       
-    //<< this->m_IO.InquireVariableType(variable.m_Name) << ");";
     std::cout << "(" << variable.m_Name << ")"
         << "\n\tvar.m_Name=" << variable.m_Name 
         << "\n\tvar.m_Type=" << variable.m_Type
@@ -79,10 +78,13 @@ void CephWriter::PrintVarInfo(Variable<T> &variable)
     std::cout << "\n\tvar.PayloadSize=" << 
         variable.PayloadSize();
     
+    
     TypeInfo<T> ti;
+    librados::bufferlist bl = *(m_BuffsIdx[m_CurrentStep]->at(variable.m_Name));    
+    
     PrintVariableVals(variable.TotalSize(), variable.GetData());
-    PrintBufferlistVals(ti, *(m_Buffs.at(variable.m_Name))); 
-    //BLTesting(ti, *(m_Buffs.at(variable.m_Name))); 
+    PrintBufferlistVals(ti, bl); 
+    //BLTesting(ti, bl); 
     
     std::cout << std::endl;
 }
@@ -148,25 +150,24 @@ void CephWriter::AppendBufferlist(Variable<T> &variable)
     // with a complex type variable.
     const char* p = (const char*)variable.GetData();  
     if (p) 
-        m_Buffs.at(variable.m_Name)->append(p, variable.TotalSize() * variable.m_ElementSize);
+    {
+        m_BuffsIdx[m_CurrentStep]->at(variable.m_Name)->append(p, variable.PayloadSize());
+    }
 }
 
 void CephWriter::AppendBufferlist(Variable<std::string> &variable)
 {
-    // TODO: these should use bufferlist ::encode and decode
+    // Special case for string var types.
     const char* p = (const char*)variable.GetData();  
     if (p) 
-        m_Buffs.at(variable.m_Name)->append(variable.m_Value.c_str(), variable.m_Value.size());
+    {    
+        m_BuffsIdx[m_CurrentStep]->at(variable.m_Name)->append(variable.m_Value.c_str(), variable.m_Value.size());
+    }
 }
 
-
-// Prints out the variable's elements from var data[] and bufferlist.
-// TODO: add these DIMS type.<< ": m_Count=" << variable.m_Count
 template <class T>
 void CephWriter::PrintVariableVals(size_t num_elems, const T* p)
 { 
-    // print out elems in var's data[]  
-    // this is of course unsafe.
     if(p)
     {
         std::cout << "\n\tvar.GetData=";
@@ -183,19 +184,19 @@ template <class T>
 void CephWriter::PrintBufferlistVals(const TypeInfo<T>, librados::bufferlist  &bl)
 { 
     // print out elems in bufferlist
-    std::cout << "\n\tbl.addr=" << &bl << "\n\tbl.length=" << bl.length();
-
+    std::cout << "\n\tbl.length=" << bl.length();
+    
     // use a bufferlist iterator and we treat string type as separate case.
     // since adios2 string type is always value sized as str ptr,
     // so we cannot iterate over the bufferlist.
     if(std::is_same<T, std::string>::value)
     {
-        std::string const s(bl.c_str(), bl.length());
-        std::cout << "\n\tdata=" << s;  
+        const std::string s(bl.c_str(), bl.length());
+        std::cout << "\n\tbl.data=" << s;  
     } 
     else 
     {
-        std::cout << "\n\tdata=";
+        std::cout << "\n\tbl.data=";
         librados::bufferlist::iterator it = bl.begin();   
         size_t pos = 0;
         
@@ -214,6 +215,7 @@ void CephWriter::PrintBufferlistVals(const TypeInfo<T>, librados::bufferlist  &b
 template <class T> 
 void CephWriter::BLTesting(const TypeInfo<T> ti, librados::bufferlist& bl)
 {
+    if (bl.length() == 0) return;
     std::cout << "START BL Copy Testing\n";   
     int total_elems = bl.length()/sizeof(T);
     int len = bl.length()/2;
@@ -283,14 +285,19 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     std::vector<int> dimOffsets = {0,0,0};
     
     // always add the data to the variable, can this ever be null?
-    variable.SetData(values); 
+    if(values != nullptr)     
+        variable.SetData(values); 
     
     // need to keep track of ongoing min max for this var, per obj, and global.
     CheckMinMax(variable); 
     
+    librados::bufferlist bl = *(m_BuffsIdx[m_CurrentStep]->at(variable.m_Name));
+    
     // TODO: get remaining bytes in buffer for this variable.
+    // we should try to allocate new bufferlist or bufptr of size=var.PayloadSize()
+    // then append/claim that to the actual bufferlist.
     const int BUF_SZ_AVAIL = adios2::DefaultMaxBufferSize;
-    if (BUF_SZ_AVAIL > (variable.PayloadSize() +  m_Buffs.at(variable.m_Name)->length()))
+    if ((BUF_SZ_AVAIL - bl.length()) > variable.PayloadSize())
     {
         AppendBufferlist(variable); 
         
@@ -299,7 +306,6 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
         variable.SetData(nullptr);
     }
     
-#ifdef USE_CEPH_OBJ_TRANS
     if (currentStep % m_FlushStepsCount == 0)  // prescribed by EMPRESS
     {
         //FlushObjData();
@@ -321,57 +327,38 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
             std::cout << std::endl;
         }
 
-        size_t size = m_Buffs.at(variable.m_Name)->length();
-        size_t start = 0;  // zero for write full bl, otherwise get offset for last object append.
-        transport->Write(oid, *(m_Buffs.at(variable.m_Name)), size, start, variable.m_ElementSize, variable.m_Type);
-        m_Buffs.at(variable.m_Name)->clear();
-
-    }
-    
-    
+#ifdef USE_CEPH_OBJ_TRANS
+        transport->Write(oid, bl);
 #endif /* USE_CEPH_OBJ_TRANS */
+        
+        //bl.clear();
+    }
 
-    // BPFileWriter: try to resize buffer to hold new varsize if needed
-    // format::BP3Base::ResizeResult resizeResult = m_BP3Serializer.ResizeBuffer(
-    
-    // BPFileWriter: resize result is to flush
-    // 1. serialize data:  m_BP3Serializer.SerializeData(m_IO);
-    // 2. write files:   m_FileDataManager.WriteFiles(m_BP3Serializer.m_Data.m_Buffer.data(), m_BP3Serializer.m_Data.m_Position);
-    // 3. reset buffer: m_BP3Serializer.ResetBuffer(m_BP3Serializer.m_Data);
-    
-    // BPFileWriter: addtest var metadata and data to buffer.
-    // m_BP3Serializer.PutVariableMetadata(variable);
-    // m_BP3Serializer.PutVariablePayload(variable);s 
 }
 
 template <class T>
 void CephWriter::PutDeferredCommon(Variable<T> &variable, const T *values)
 {
+    // always add the data to the variable, can this ever be null?
     if(values != nullptr)     
         variable.SetData(values); 
     
     // need to keep track of ongoing min max for this var, per obj, and global.
     CheckMinMax(variable); 
     
-    // always add var data to our bl.
+    librados::bufferlist bl = *(m_BuffsIdx[m_CurrentStep]->at(variable.m_Name));
+    
+    // TODO: get remaining bytes in buffer for this variable.
+    // we should try to allocate new bufferlist or bufptr of size=var.PayloadSize()
+    // then append/claim that to the actual bufferlist.
     const int BUF_SZ_AVAIL = adios2::DefaultMaxBufferSize;
-    if (BUF_SZ_AVAIL > variable.PayloadSize()) 
+    if ((BUF_SZ_AVAIL - bl.length()) > variable.PayloadSize())
     {
-        // TODO: dangerous cast, change to template specialization
-        const char* vdata_ptr = reinterpret_cast<const char*>(variable.GetData());
-        const int vdata_size = variable.PayloadSize();
-        if (vdata_ptr) 
-        {
-            if(variable.m_SingleValue) 
-            {
-                // TODO: this is a workaround for string payloadsize fixed at 32
-                m_Buffs.at(variable.m_Name)->append(variable.m_Value);
-            }
-            else 
-            {
-                m_Buffs.at(variable.m_Name)->append(vdata_ptr, vdata_size);
-            }
-        }
+        AppendBufferlist(variable); 
+        
+        // now we clear the var data so its not re-added to bufferlist
+        // this is appropriate since variable is not the place for data storage
+        variable.SetData(nullptr);
     }
 
     m_NeedPerformPuts = true;

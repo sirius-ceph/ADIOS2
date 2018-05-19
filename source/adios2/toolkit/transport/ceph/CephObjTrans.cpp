@@ -157,7 +157,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
     int ret = 0;
     uint64_t flags;
     
-//#ifdef USE_CEPH_OBJ_TRANS
+#ifdef USE_CEPH_OBJ_TRANS
     /* Initialize the cluster handle with cluster name  user name */
     if(m_DebugMode)
     {
@@ -222,7 +222,7 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
             "set up ioctx! error= "  + std::to_string(ret) + "\n");
     }
-//#endif /* USE_CEPH_OBJ_TRANS */
+#endif /* USE_CEPH_OBJ_TRANS */
     
     m_IsOpen = true;
 }
@@ -242,9 +242,9 @@ bool CephObjTrans::ObjExists(const std::string &oid)
 
 }
 
-void CephObjTrans::Write(std::string oid, librados::bufferlist& bl, 
-    size_t size, size_t start, size_t elemSize, std::string elemType)
+void CephObjTrans::Write(std::string oid, librados::bufferlist& bl)
 {
+    size_t size = bl.length();
     
     if (m_DebugMode) 
     {
@@ -253,11 +253,9 @@ void CephObjTrans::Write(std::string oid, librados::bufferlist& bl,
         std::stringstream ss;
         ss << addr;  
         std::string bl_addr = ss.str(); 
-        DebugPrint("CephObjTrans::Write:rank(" + std::to_string(m_RankMPI) + ")" + \
-                " oid='" + oid + "';  size=" + std::to_string(size) + \
-                "; start=" + std::to_string(start) + "; elemSize=" + \
-                std::to_string(elemSize) + "; type=" + elemType + "; bl.length=" + \
-                std::to_string(bl.length()) +  "; bl addr=" + bl_addr, false);
+        DebugPrint("CephObjTrans::Write:rank(" + std::to_string(m_RankMPI) + \
+                ")" + " oid='" + oid + "';  size=" + std::to_string(size) + \
+                "; bl addr=" + bl_addr, false);
     }
     
 }

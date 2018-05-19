@@ -46,6 +46,20 @@ public:
     // cephWriter.moveTier("VarName", TIER::SLOW)
     // actually this should probabaly be SetTier(var), 
 
+    struct empressmd {
+        std::string jobId;
+        std::string expName;
+        int timestep;
+        std::string varName;
+        int varVersion;
+        std::vector<int> localDimOffsets;
+        std::vector<int> globalDimBounds;
+        int nDims;
+        int rank;
+        int nRanks;
+        
+    };
+
 private:
     
     // Engine vars
@@ -54,10 +68,12 @@ private:
     int m_CurrentStep = -1;     // steps start from 0
 
     // Keeps track of outstading (async) write data <varname, bufferlist ptr>
-    std::unordered_map<std::string, librados::bufferlist*> m_Buffs;
+    // due to asynch we will need a vector of these, indexed by timestep
+    // we can free the buff ptrs as needed for a given timestep
+    typedef std::unordered_map<std::string, librados::bufferlist*> CWBufferlistMap;
 
-    // TODO: we may need this later if deferring writes across timesteps.
-    std::map<std::string, std::vector<int>> timeStepsBuffered; 
+    // map is indexed by timestep
+    std::map<int , CWBufferlistMap*> m_BuffsIdx;
 
     // EMPRESS vars
     std::string m_ExpName;
@@ -73,7 +89,7 @@ private:
     void Init() final;
     void InitParameters() final;
     void InitTransports() final;
-    void InitBuffer(); 
+    void InitBuffer(int timestep); 
     void DoClose(const int transportIndex = -1) final;
 
     // layer that writes to ceph tiers
@@ -81,8 +97,8 @@ private:
     std::shared_ptr<transport::CephObjTrans> transport;
 
 #define declare_type(T)                                                        \
-    void DoPutSync(Variable<T> &, const T *) final;                            \
-    void DoPutDeferred(Variable<T> &, const T *) final;                        \
+    void DoPutSync(Variable<T> &, const T *) final;               \
+    void DoPutDeferred(Variable<T> &, const T *) final;        \
     void DoPutDeferred(Variable<T> &, const T &) final;
     ADIOS2_FOREACH_TYPE_1ARG(declare_type)
 #undef declare_type
@@ -100,13 +116,24 @@ private:
 
     template <class T>
     void PrintVarInfo(Variable<T> &variable); 
+    
+    /* for the below we scope out complex types, since they require 
+    * special conversion handling during assignment and printing 
+    * and are not supported yet.
+    */
         
     template <class T>
     void PrintVariableVals(size_t num_elems, const T* p); 
     void PrintVariableVals(size_t num_elems, const std::complex<float>* p) { /*not supported*/ }
     void PrintVariableVals(size_t num_elems, const std::complex<double>* p) { /*not supported*/ }
-    void PrintVariableVals(size_t num_elems,const std::complex<long double>* p) { /*not supported*/ }
+    void PrintVariableVals(size_t num_elems, const std::complex<long double>* p) { /*not supported*/ }
      
+    template <class T>
+    void PrintBufferlistVals(const TypeInfo<T> ti, librados::bufferlist  &bl);
+    void PrintBufferlistVals(const TypeInfo<std::complex<float>> ti, librados::bufferlist  &bl) { /*not supported*/ }
+    void PrintBufferlistVals(const TypeInfo<std::complex<double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
+    void PrintBufferlistVals(const TypeInfo<std::complex<long double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
+
     template <class T>
     void CheckMinMax(Variable<T> &variable); 
     
@@ -125,20 +152,13 @@ private:
     void SetMinMax(Variable<std::complex<long double>> &variable, const std::complex<long double>& val ) { /*not supported*/ }
     
     
-    void TestBL();  // jpl testing only.
-    
-    
+    /* dev debug only */
     template <class T>
-    void BLTesting(const TypeInfo<T> ti, librados::bufferlist  &bl); // print librados::bufferlist 
+    void BLTesting(const TypeInfo<T> ti, librados::bufferlist  &bl); 
     void BLTesting(const TypeInfo<std::complex<float>> ti, librados::bufferlist  &bl) { /*not supported*/ }
     void BLTesting(const TypeInfo<std::complex<double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
     void BLTesting(const TypeInfo<std::complex<long double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
     
-    template <class T>
-    void PrintBufferlistVals(const TypeInfo<T> ti, librados::bufferlist  &bl);
-    void PrintBufferlistVals(const TypeInfo<std::complex<float>> ti, librados::bufferlist  &bl) { /*not supported*/ }
-    void PrintBufferlistVals(const TypeInfo<std::complex<double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
-    void PrintBufferlistVals(const TypeInfo<std::complex<long double>> ti, librados::bufferlist  &bl) { /*not supported*/ } 
 
     };
 } // end namespace adios2
