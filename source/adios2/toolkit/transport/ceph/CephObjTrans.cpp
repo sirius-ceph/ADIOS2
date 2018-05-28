@@ -100,6 +100,13 @@ CephObjTrans::CephObjTrans(MPI_Comm mpiComm, const std::vector<Params> &params,
             else if(ParamsToLower(elem.first) == "targetobjsize") 
             {   
                 m_TargetObjSize = std::stoul(elem.second);
+            }            
+            else if(ParamsToLower(elem.first) == "testmode") 
+            {   
+                if(ParamsToLower(elem.second) == "true")
+                    m_TestMode = true;  
+                else
+                    m_TestMode = false; 
             }
             else 
             {
@@ -157,73 +164,73 @@ void CephObjTrans::Open(const std::string &name, const Mode openMode)
     int ret = 0;
     uint64_t flags;
     
-#ifdef USE_CEPH_OBJ_TRANS
-    /* Initialize the cluster handle with cluster name  user name */
-    if(m_DebugMode)
+    if(!m_TestMode)
     {
-        DebugPrint("Open:m_RadosCluster.init2(" + m_CephUserName + "," 
-                + m_CephClusterName + ")"  , false);
-    }
-    ret = m_RadosCluster.init2(m_CephUserName.c_str(), 
-            m_CephClusterName.c_str(), flags);
-    if (ret < 0) 
-    {
-         throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
-                "initialize the cluster handle! error= "  + std::to_string(ret) + "\n");
-    }
-    
-      /* Read a Ceph configuration file to configure the cluster handle. */
-    if(m_DebugMode)
-    {
-        DebugPrint("Open:m_RadosCluster.conf_read_file(" + m_CephConfFilePath 
-                + ")", false);
-    }
-    ret = m_RadosCluster.conf_read_file(m_CephConfFilePath.c_str());
-    if (ret < 0) 
-    {https://hub.docker.com/r/kiizawa/siriusdev/
-        throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
-                "read the Ceph configuration file! error= "  
-                + std::to_string(ret) + "\n");
-    }
+        /* Initialize the cluster handle with cluster name  user name */
+        if(m_DebugMode)
+        {
+            DebugPrint("Open:m_RadosCluster.init2(" + m_CephUserName + "," 
+                    + m_CephClusterName + ")"  , false);
+        }
+        ret = m_RadosCluster.init2(m_CephUserName.c_str(), 
+                m_CephClusterName.c_str(), flags);
+        if (ret < 0) 
+        {
+             throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
+                    "initialize the cluster handle! error= "  + std::to_string(ret) + "\n");
+        }
         
-      /* Connect to the cluster */
-    if(m_DebugMode)
-    {
-        DebugPrint("Open:m_RadosCluster.connect()"  , false);
-    }
-    if(0)ret = m_RadosCluster.connect();
-    if (ret < 0) 
-    {
-        throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
-                "connect to cluster! error= "  + std::to_string(ret) + "\n");
-    }
+          /* Read a Ceph configuration file to configure the cluster handle. */
+        if(m_DebugMode)
+        {
+            DebugPrint("Open:m_RadosCluster.conf_read_file(" + m_CephConfFilePath 
+                    + ")", false);
+        }
+        ret = m_RadosCluster.conf_read_file(m_CephConfFilePath.c_str());
+        if (ret < 0) 
+        {https://hub.docker.com/r/kiizawa/siriusdev/
+            throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
+                    "read the Ceph configuration file! error= "  
+                    + std::to_string(ret) + "\n");
+        }
+            
+          /* Connect to the cluster */
+        if(m_DebugMode)
+        {
+            DebugPrint("Open:m_RadosCluster.connect()"  , false);
+        }
+        if(0)ret = m_RadosCluster.connect();
+        if (ret < 0) 
+        {
+            throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
+                    "connect to cluster! error= "  + std::to_string(ret) + "\n");
+        }
 
-     /* Set up the storage and archive pools for tieiring. */
-    if(m_DebugMode)
-    {
-        DebugPrint("Open:m_RadosCluster.ioctx_create(" \
-                "storage_pool, m_IoCtxStorage)" , false);
-    }
-    if(0)ret = m_RadosCluster.ioctx_create("storage_pool", m_IoCtxStorage);
-    if (ret < 0)
-    {
-        throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
+         /* Set up the storage and archive pools for tieiring. */
+        if(m_DebugMode)
+        {
+            DebugPrint("Open:m_RadosCluster.ioctx_create(" \
+                    "storage_pool, m_IoCtxStorage)" , false);
+        }
+        if(0)ret = m_RadosCluster.ioctx_create("storage_pool", m_IoCtxStorage);
+        if (ret < 0)
+        {
+            throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
+                    "set up ioctx! error= "  + std::to_string(ret) + "\n");
+        }
+
+        if(m_DebugMode)
+        {
+            DebugPrint("Open:CephObjTrans::Open:m_RadosCluster.ioctx_create(" \
+                    "archive_pool, m_IoCtxArchive)" , false);
+        }
+        if(0)ret = m_RadosCluster.ioctx_create("archive_pool", m_IoCtxArchive);
+        if (ret < 0)
+       {
+            throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
                 "set up ioctx! error= "  + std::to_string(ret) + "\n");
+        }
     }
-
-    if(m_DebugMode)
-    {
-        DebugPrint("Open:CephObjTrans::Open:m_RadosCluster.ioctx_create(" \
-                "archive_pool, m_IoCtxArchive)" , false);
-    }
-    if(0)ret = m_RadosCluster.ioctx_create("archive_pool", m_IoCtxArchive);
-    if (ret < 0)
-   {
-        throw std::ios_base::failure("CephObjTrans::Open:Ceph Couldn't " \
-            "set up ioctx! error= "  + std::to_string(ret) + "\n");
-    }
-#endif /* USE_CEPH_OBJ_TRANS */
-    
     m_IsOpen = true;
 }
     

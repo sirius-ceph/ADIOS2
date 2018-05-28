@@ -21,6 +21,7 @@
         </engine>
         
         <transport type="CephObjTrans">
+            <parameter key="TestMode" value="true"/>
             <parameter key="CephMonIP" value="127.0.0.1"/>
             <parameter key="CephUserName" value="client.admin"/>
             <parameter key="CephClusterName" value="ceph"/>

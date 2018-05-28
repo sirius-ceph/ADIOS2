@@ -327,10 +327,7 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
             std::cout << std::endl;
         }
 
-#ifdef USE_CEPH_OBJ_TRANS
-        transport->Write(oid, bl);
-#endif /* USE_CEPH_OBJ_TRANS */
-        
+        transport->Write(oid, bl);        
         //bl.clear();
     }
 

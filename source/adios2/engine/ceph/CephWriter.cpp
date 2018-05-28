@@ -162,10 +162,8 @@ void CephWriter::DoClose(const int transportIndex)
     if(m_NeedPerformPuts)
         PerformPuts();     
     
-#ifdef USE_CEPH_OBJ_TRANS
     // TODO:  add empressmd update and check for rank0 and all others done.
     transport->Close();   
-#endif /* USE_CEPH_OBJ_TRANS */
     
     /* TODO: 
     * need to printout /check all var bls for remaining data 
@@ -218,6 +216,15 @@ void CephWriter::InitParameters()
                         "integer in the range [0,5], in call to "
                         "Open or Engine constructor\n");
         }
+    }
+    
+    it = m_IO.m_Parameters.find("TestMode");
+    if (it == m_IO.m_Parameters.end())
+        it = m_IO.m_Parameters.find("testmode");
+    if (it != m_IO.m_Parameters.end())
+    {
+        Params p = {{it->first, it->second}};
+        m_IO.m_TransportsParameters.push_back(p);
     }
     
     it = m_IO.m_Parameters.find("ExpName");
@@ -275,9 +282,7 @@ void CephWriter::InitTransports()
 void CephWriter::InitBuffer(int timestep)
 {
 
-    // creates a new map of <varname, bl> for each timestep
-#ifdef USE_CEPH_OBJ_TRANS
-    
+    // creates a new map of <varname, bl> for each timestep    
     CWBufferlistMap* bmap = new CWBufferlistMap();
     
     // create an empty bufferlist per variable
@@ -302,8 +307,6 @@ void CephWriter::InitBuffer(int timestep)
     }
     std::cout << std::endl;
     m_BuffsIdx[timestep] = bmap;
-    
-#endif /* USE_CEPH_OBJ_TRANS */
 }
 
 

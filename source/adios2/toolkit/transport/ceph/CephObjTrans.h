@@ -60,6 +60,7 @@ public:
     void Close() final;
 
 private:
+    bool m_TestMode = false;
     int m_Verbosity = 0;
 
     // internal utils
