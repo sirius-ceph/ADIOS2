@@ -60,7 +60,10 @@ public:
     void Close() final;
 
 private:
-    bool m_TestMode = false;
+
+    // testmode true will skip the actual write calls to external ceph cluster.
+    bool m_TestMode = false;   
+
     int m_Verbosity = 0;
 
     // internal utils

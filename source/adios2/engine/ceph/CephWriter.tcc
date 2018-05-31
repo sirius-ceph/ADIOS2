@@ -252,7 +252,7 @@ void CephWriter::BLTesting(const TypeInfo<T> ti, librados::bufferlist& bl)
     std::cout << "\n\tcopy_all to copy3";  
     PrintBufferlistVals(ti, copy3); 
     
-    // copy both halves via bufferptrs
+    // copy both halves via itr & bufferptrs
 {
     librados::bufferlist copy;
     ceph::bufferptr ptr1(len), ptr2(len);
@@ -290,14 +290,13 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     
     // need to keep track of ongoing min max for this var, per obj, and global.
     CheckMinMax(variable); 
-    
-    librados::bufferlist bl = *(m_BuffsIdx[m_CurrentStep]->at(variable.m_Name));
-    
+        
     // TODO: get remaining bytes in buffer for this variable.
     // we should try to allocate new bufferlist or bufptr of size=var.PayloadSize()
     // then append/claim that to the actual bufferlist.
     const int BUF_SZ_AVAIL = adios2::DefaultMaxBufferSize;
-    if ((BUF_SZ_AVAIL - bl.length()) > variable.PayloadSize())
+    const int BL_REMAINING = 0;
+    if ((BUF_SZ_AVAIL - BL_REMAINING) > variable.PayloadSize())
     {
         AppendBufferlist(variable); 
         
@@ -320,15 +319,56 @@ void CephWriter::PutSyncCommon(Variable<T> &variable, const T *values)
     
         if (m_DebugMode)
         {
-            std::cout << "oid=" << oid << std::endl;
             std::cout << "\nCephWriter::PutSyncCommon:rank("  << m_WriterRank 
                     << ") ts=: " << currentStep << ";  ";
             PrintVarInfo(variable); 
             std::cout << std::endl;
         }
-
-        transport->Write(oid, bl);        
-        //bl.clear();
+        
+        /*         
+            TODO:
+            for j=0:curr_step:
+                if ts_j.out == false:
+                    for i=1:(bl.len/m):
+                        blcopy_i = bl.copy_shallow next seq m elements
+                        ret_m = asycnc_write(oid_i, blcopy_i)
+                    ts_j.out = true
+        */
+        
+        // TODO: dynamic obj sizing info comes from empress
+        int empressValsPerObject = 12;
+        int obj_len = variable.m_ElementSize * empressValsPerObject;
+        
+        // Get the bl itr for this timestep
+        librados::bufferlist bl = *(m_BuffsIdx[m_CurrentStep]->at(variable.m_Name));
+        librados::bufferlist::iterator itr(&bl);
+        
+        // copy the bl into possibly multiple objects each of prescribed size
+        // that are written to ceph via transport layer asynchronous write
+        // to given storage tier (tier is a conf.xml transport parameter)
+        itr.seek(0);
+        while(itr.get_remaining())
+        {
+            librados::bufferlist copy;
+            
+            // account for size of last object.
+            if(itr.get_remaining() < obj_len) 
+                obj_len = itr.get_remaining();
+            
+            ceph::bufferptr ptr(obj_len);
+            itr.copy_shallow(obj_len, ptr);
+            copy.append(ptr);
+            transport->Write(oid, copy); 
+            
+            if (m_DebugMode)
+            {
+                std::cout << "\nCephWriter::PutSyncCommon:rank("  
+                    << m_WriterRank << ") ts=: " << currentStep 
+                    << ";  wrote oid=" << oid << " with obj data:" ;
+                TypeInfo<T> ti;
+                PrintBufferlistVals(ti, copy); 
+            }
+        }
     }
 
 }

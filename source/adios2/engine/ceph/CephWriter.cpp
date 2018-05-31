@@ -135,8 +135,24 @@ void CephWriter::EndStep()
     if(m_NeedPerformPuts)
         PerformPuts();    
     
-    // reset state
+    // reset state since we did the puts to push out any data still present.
     m_ForceFlush = false;
+    
+    // TODO: clear out any buffers that have been written successfully.
+    // Need to check the aysnc write ret_code status first.
+    for(auto& var: m_IO.GetAvailableVariables())
+    {
+        std::string varname = var.first;
+        if (m_DebugMode)
+        {
+            std::cout << "Timestep " << m_CurrentStep 
+            << ": freeing bl for varname=" << varname << std::endl;
+        }
+        librados::bufferlist *bl = m_BuffsIdx[m_CurrentStep]->at(varname);
+        bl->zero();
+        bl->clear();
+        delete bl;
+    }
 }
 
 size_t CephWriter::CurrentStep() 
